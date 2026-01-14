@@ -54,9 +54,9 @@ function getMeaning(symbol){
   return (v && String(v).trim()) ? String(v) : "";
 }
 
-async function main(){
-  RAW_SUMMARY   = await fetchJson("../data/agg/summary.json");
-  RAW_BY_SYMBOL = await fetchJson("../data/agg/by_symbol.json");
+sync function main() {
+  const summary = await fetch("../data/agg/summary.json").then(r => r.json());
+  const rows = await fetch("../data/agg/by_symbol.json").then(r => r.json());
   SYMBOL_MASTER = await fetchJsonSafe("../data/master/symbol_master.json", {});
 
   selected = new Set(RAW_BY_SYMBOL.map(r => r.symbol ?? "(未設定)"));
