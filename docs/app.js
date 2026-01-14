@@ -3,115 +3,33 @@ const fmtPct = (v) => v == null ? "-" : (v * 100).toFixed(1) + "%";
 
 let RAW_SUMMARY = null;
 let RAW_BY_SYMBOL = [];
-let SYMBOL_MASTER = {};
+let RAW_MASTER = null; // { "A": "意味", ... }
 
-let selected = new Set();
+let selected = new Set();  // 選択中の記号
 let sortKey = "sales";
-let sortDir = "desc";
+let sortDir = "desc"; // "asc" | "desc"
 
-const clamp01 = (x) => Math.max(0, Math.min(1, x));
-const mix = (a,b,t) => Math.round(a + (b-a)*t);
+async function main() {
+  RAW_SUMMARY = await fetchJson("./data/agg/summary.json");
+  RAW_BY_SYMBOL = await fetchJson("./data/agg/by_symbol.json");
 
-function rateStyleBySpec(rate){
-  if (rate == null) return "";
-  const pct = rate * 100;
-
-  const BLUE  = { r: 30,  g: 107, b: 255 };
-  const WHITE = { r: 255, g: 255, b: 255 };
-  const RED   = { r: 217, g: 48,  b: 37  };
-
-  let bg = WHITE;
-
-  if (pct >= 32) {
-    bg = RED;
-  } else if (pct >= 25) {
-    const t = clamp01((pct - 25) / (31 - 25));
-    const start = { r: 245, g: 245, b: 245 };
-    bg = { r: mix(start.r, WHITE.r, t), g: mix(start.g, WHITE.g, t), b: mix(start.b, WHITE.b, t) };
-  } else {
-    const t = clamp01(pct / 25);
-    bg = { r: mix(BLUE.r, WHITE.r, t), g: mix(BLUE.g, WHITE.g, t), b: mix(BLUE.b, WHITE.b, t) };
+  // symbol_master は無くても動くように（後で入る前提）
+  try {
+    RAW_MASTER = await fetchJson("./data/master/symbol_master.json");
+  } catch (e) {
+    console.warn("symbol_master.json not found (optional).", e);
+    RAW_MASTER = null;
   }
 
-  const luminance = (0.2126*bg.r + 0.7152*bg.g + 0.0722*bg.b) / 255;
-  const text = (pct >= 32 || luminance < 0.55) ? "#fff" : "#222";
-
-  return [
-    `background: rgb(${bg.r}, ${bg.g}, ${bg.b});`,
-    `color: ${text};`,
-    `font-weight: 800;`,
-    `border-radius: 8px;`,
-    `padding: 6px 10px;`,
-    `display: inline-block;`,
-    `min-width: 72px;`,
-    `text-align: right;`,
-  ].join(" ");
-}
-
-function getMeaning(symbol){
-  const key = symbol ?? "(未設定)";
-  const v = SYMBOL_MASTER?.[key];
-  return (v && String(v).trim()) ? String(v) : "";
-}
-
-// 原価率：0%を青、25〜31を白グラデ、32%以上を赤
-function rateStyleBySpec(rate){
-  if (rate == null) return "";
-
-  const pct = rate * 100;
-
-  const clamp01 = (x) => Math.max(0, Math.min(1, x));
-  const mix = (a,b,t) => Math.round(a + (b-a)*t);
-
-  const BLUE  = { r: 30,  g: 107, b: 255 }; // 青
-  const WHITE = { r: 255, g: 255, b: 255 }; // 白
-  const RED   = { r: 217, g: 48,  b: 37  }; // 赤
-
-  let bg = WHITE;
-
-  if (pct >= 32) {
-    bg = RED;
-  } else if (pct >= 25) {
-    // 25〜31：白のグラデ（薄いグレー→白）
-    const t = clamp01((pct - 25) / (31 - 25));
-    const start = { r: 245, g: 245, b: 245 };
-    bg = { r: mix(start.r, WHITE.r, t), g: mix(start.g, WHITE.g, t), b: mix(start.b, WHITE.b, t) };
-  } else {
-    // 0〜25：青→白のグラデ（0%が一番青）
-    const t = clamp01(pct / 25);
-    bg = { r: mix(BLUE.r, WHITE.r, t), g: mix(BLUE.g, WHITE.g, t), b: mix(BLUE.b, WHITE.b, t) };
-  }
-
-  // 赤 or 暗い背景なら文字は白、それ以外は黒
-  const luminance = (0.2126*bg.r + 0.7152*bg.g + 0.0722*bg.b) / 255;
-  const text = (pct >= 32 || luminance < 0.55) ? "#fff" : "#222";
-
-  return [
-    `background: rgb(${bg.r}, ${bg.g}, ${bg.b});`,
-    `color: ${text};`,
-    `font-weight: 800;`,
-    `border-radius: 8px;`,
-    `padding: 6px 10px;`,
-    `display: inline-block;`,
-    `min-width: 72px;`,
-    `text-align: right;`,
-  ].join(" ");
-}
-
-
-sync function main() {
-  const summary = await fetch("../data/agg/summary.json").then(r => r.json());
-  const rows = await fetch("../data/agg/by_symbol.json").then(r => r.json());
-  SYMBOL_MASTER = await fetchJsonSafe("../data/master/symbol_master.json", {});
-
-  selected = new Set(RAW_BY_SYMBOL.map(r => r.symbol ?? "(未設定)"));
+  // 初期：全選択（(未設定)も含める）
+  selected = new Set(RAW_BY_SYMBOL.map(r => (r.symbol ?? "(未設定)")));
 
   renderSymbolChips();
   wireEvents();
   render();
 }
 
-function wireEvents(){
+function wireEvents() {
   document.querySelector("#btn_all").addEventListener("click", () => {
     selected = new Set(visibleSymbolsByQuery());
     render();
@@ -128,97 +46,207 @@ function wireEvents(){
     renderSymbolChips();
   });
 
+  // ソート（thクリック）
   document.querySelectorAll("#tbl thead th[data-sort]").forEach(th => {
     th.addEventListener("click", () => {
       const key = th.getAttribute("data-sort");
-      if (sortKey === key) sortDir = (sortDir === "desc") ? "asc" : "desc";
-      else { sortKey = key; sortDir = (key === "symbol" || key === "meaning") ? "asc" : "desc"; }
+      if (sortKey === key) {
+        sortDir = (sortDir === "desc") ? "asc" : "desc";
+      } else {
+        sortKey = key;
+        sortDir = (key === "symbol") ? "asc" : "desc";
+      }
       render();
     });
   });
 }
 
-function renderSymbolChips(){
+function renderSymbolChips() {
   const box = document.querySelector("#symbol_box");
   box.innerHTML = "";
-  const q = (document.querySelector("#q").value || "").toLowerCase();
 
-  RAW_BY_SYMBOL
-    .filter(r => !q ? true : String(r.symbol ?? "").toLowerCase().includes(q))
+  const q = (document.querySelector("#q").value || "").trim().toLowerCase();
+
+  const rows = RAW_BY_SYMBOL
+    .filter(r => {
+      const sym = (r.symbol ?? "(未設定)");
+      if (!q) return true;
+      return String(sym).toLowerCase().includes(q);
+    })
     .slice()
-    .sort((a,b) => String(a.symbol).localeCompare(String(b.symbol), "ja"))
-    .forEach(r => {
-      const sym = r.symbol ?? "(未設定)";
-      const meaning = getMeaning(sym);
+    .sort((a,b) => String(a.symbol ?? "").localeCompare(String(b.symbol ?? ""), "ja"));
 
-      const chip = document.createElement("label");
-      chip.className = "chip";
-      chip.title = meaning ? `${sym}：${meaning}` : `${sym}`;
+  rows.forEach(r => {
+    const sym = r.symbol ?? "(未設定)";
+    const chip = document.createElement("label");
+    chip.className = "chip";
+    chip.innerHTML = `
+      <input type="checkbox" />
+      <span class="tag">${escapeHtml(sym)}</span>
+      <span class="sub">${fmtYen(r.sales)}</span>
+    `;
+    const cb = chip.querySelector("input");
+    cb.checked = selected.has(sym);
 
-      chip.innerHTML = `
-        <input type="checkbox" />
-        <span class="tag">${escapeHtml(sym)}</span>
-        <span class="sub">${fmtYen(r.sales)}</span>
-      `;
-      const cb = chip.querySelector("input");
-      cb.checked = selected.has(sym);
-
-      cb.addEventListener("change", () => {
-        cb.checked ? selected.add(sym) : selected.delete(sym);
-        render();
-      });
-
-      box.appendChild(chip);
+    cb.addEventListener("change", () => {
+      if (cb.checked) selected.add(sym);
+      else selected.delete(sym);
+      render();
     });
-}
 
-function syncChipsChecked(){
-  document.querySelectorAll("#symbol_box .chip").forEach(chip => {
-    const sym = chip.querySelector(".tag")?.textContent ?? "";
-    chip.querySelector("input").checked = selected.has(sym);
+    box.appendChild(chip);
   });
 }
 
-function visibleSymbolsByQuery(){
-  const q = (document.querySelector("#q").value || "").toLowerCase();
-  return RAW_BY_SYMBOL.map(r => r.symbol ?? "(未設定)")
-    .filter(s => !q || String(s).toLowerCase().includes(q));
+function syncChipsChecked() {
+  document.querySelectorAll("#symbol_box .chip").forEach(chip => {
+    const sym = chip.querySelector(".tag")?.textContent ?? "";
+    const cb = chip.querySelector("input");
+    cb.checked = selected.has(sym);
+  });
 }
 
-function render(){
+function visibleSymbolsByQuery() {
+  const q = (document.querySelector("#q").value || "").trim().toLowerCase();
+  return RAW_BY_SYMBOL
+    .map(r => (r.symbol ?? "(未設定)"))
+    .filter(sym => !q || String(sym).toLowerCase().includes(q));
+}
+
+function getMeaning(sym) {
+  if (!RAW_MASTER) return "";
+  return RAW_MASTER[sym] ?? "";
+}
+
+/**
+ * 原価率の色（あなた指定）
+ * - 0%: 青
+ * - 32%以上: 赤
+ * - 25〜31%: 白グラデーション
+ *
+ * rate は 0.308 のような「割合」
+ */
+function rateStyleBySpec(rate) {
+  if (rate == null || !Number.isFinite(Number(rate))) return "";
+  const pct = rate * 100;
+
+  // 32%以上：赤
+  if (pct >= 32) {
+    return `
+      background: #d93025;
+      color: #fff;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 4px 10px;
+      display: inline-block;
+      min-width: 72px;
+      text-align: right;
+    `.trim();
+  }
+
+  // 0%：青（0に近いほど青を濃く…まではまだ不要とのことだったので固定青）
+  if (pct <= 0) {
+    return `
+      background: #1a73e8;
+      color: #fff;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 4px 10px;
+      display: inline-block;
+      min-width: 72px;
+      text-align: right;
+    `.trim();
+  }
+
+  // 25〜31：白グラデーション（25→薄い / 31→濃い）
+  if (pct >= 25 && pct <= 31) {
+    const t = (pct - 25) / (31 - 25); // 0..1
+    const alpha = 0.15 + t * 0.60;   // 0.15..0.75 いい感じに見える範囲
+    return `
+      background: rgba(255,255,255,${alpha});
+      color: #111;
+      font-weight: 700;
+      border: 1px solid rgba(0,0,0,0.10);
+      border-radius: 8px;
+      padding: 4px 10px;
+      display: inline-block;
+      min-width: 72px;
+      text-align: right;
+    `.trim();
+  }
+
+  // それ以外（0〜25未満、31〜32未満）は一旦「何も塗らない」扱いにしてもいいが、
+  // 仕様に明記がないので "薄い青" に寄せる（見やすさ優先）
+  if (pct < 25) {
+    return `
+      background: rgba(26,115,232,0.20);
+      color: #111;
+      font-weight: 700;
+      border: 1px solid rgba(26,115,232,0.20);
+      border-radius: 8px;
+      padding: 4px 10px;
+      display: inline-block;
+      min-width: 72px;
+      text-align: right;
+    `.trim();
+  }
+
+  // 31〜32未満（赤に行く直前）：薄い赤
+  return `
+    background: rgba(217,48,37,0.20);
+    color: #111;
+    font-weight: 700;
+    border: 1px solid rgba(217,48,37,0.20);
+    border-radius: 8px;
+    padding: 4px 10px;
+    display: inline-block;
+    min-width: 72px;
+    text-align: right;
+  `.trim();
+}
+
+function render() {
+  // 更新日時
   document.querySelector("#updated").textContent =
     "更新: " + new Date(RAW_SUMMARY.updated_at).toLocaleString("ja-JP");
 
+  // 選択フィルタ
   const filtered = RAW_BY_SYMBOL.filter(r => selected.has(r.symbol ?? "(未設定)"));
 
-  const totalSales = filtered.reduce((a,r) => a + num(r.sales), 0);
-  const totalClaw  = filtered.reduce((a,r) => a + num(r.claw), 0);
+  // KPI：選択中の合計
+  const totalSales = filtered.reduce((a, r) => a + num(r.sales), 0);
+  const totalClaw  = filtered.reduce((a, r) => a + num(r.claw), 0);
   const costRate   = totalSales ? (totalClaw * 1.1) / totalSales : null;
 
-document.querySelector("#k_sales").textContent = fmtYen(totalSales);
-document.querySelector("#k_claw").textContent  = fmtYen(totalClaw);
+  document.querySelector("#k_sales").textContent = fmtYen(totalSales);
+  document.querySelector("#k_claw").textContent  = fmtYen(totalClaw);
 
-const kRate = document.querySelector("#k_rate");
-kRate.textContent = fmtPct(costRate);
-kRate.setAttribute("style", rateStyleBySpec(costRate));
+  const kRate = document.querySelector("#k_rate");
+  kRate.textContent = fmtPct(costRate);
+  kRate.setAttribute("style", rateStyleBySpec(costRate));
+
+  // フィルタ状況
   document.querySelector("#k_filtered").textContent =
     `選択中: ${selected.size}/${RAW_BY_SYMBOL.length} 記号`;
 
-  const sorted = filtered.slice().sort((a,b) => cmp(a,b,sortKey,sortDir));
+  // ソート
+  const sorted = filtered.slice().sort((a, b) => cmp(a, b, sortKey, sortDir));
 
+  // テーブル描画
   const tb = document.querySelector("#tbl tbody");
   tb.innerHTML = "";
 
   sorted.forEach(r => {
     const sym = r.symbol ?? "(未設定)";
     const meaning = getMeaning(sym);
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(sym)}</td>
       <td class="meaning" title="${escapeHtml(meaning)}">${escapeHtml(meaning)}</td>
       <td>${fmtYen(num(r.sales))}</td>
       <td>${fmtYen(num(r.claw))}</td>
-      <td style="${rateStyleBySpec(r.cost_rate)}">${fmtPct(r.cost_rate)}</td>
+      <td><span style="${rateStyleBySpec(r.cost_rate)}">${fmtPct(r.cost_rate)}</span></td>
       <td>${r.count ?? ""}</td>
     `;
     tb.appendChild(tr);
@@ -227,27 +255,37 @@ kRate.setAttribute("style", rateStyleBySpec(costRate));
   syncChipsChecked();
 }
 
-function cmp(a,b,key,dir){
+function cmp(a, b, key, dir) {
   const s = (dir === "desc") ? -1 : 1;
-  if (key === "symbol") return s * String(a.symbol ?? "").localeCompare(String(b.symbol ?? ""), "ja");
-  if (key === "meaning") return s * String(getMeaning(a.symbol ?? "")).localeCompare(String(getMeaning(b.symbol ?? "")), "ja");
-  return s * (num(a[key]) - num(b[key]));
+
+  if (key === "symbol") {
+    return s * String(a.symbol ?? "").localeCompare(String(b.symbol ?? ""), "ja");
+  }
+
+  const av = num(a[key]);
+  const bv = num(b[key]);
+  if (av === bv) return 0;
+  return (av < bv ? -1 : 1) * s;
 }
 
-function num(v){ const n = Number(v); return Number.isFinite(n) ? n : 0; }
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
 
-async function fetchJson(url){
+async function fetchJson(url) {
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(url + " " + res.status);
   return res.json();
 }
-async function fetchJsonSafe(url,fallback){
-  try { return await fetchJson(url); } catch { return fallback; }
-}
-function escapeHtml(s){
+
+function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
 }
 
-main().catch(e => { console.error(e); alert("読み込み失敗: " + e.message); });
+main().catch(e => {
+  console.error(e);
+  alert("読み込み失敗: " + e.message);
+});
