@@ -54,6 +54,51 @@ function getMeaning(symbol){
   return (v && String(v).trim()) ? String(v) : "";
 }
 
+// 原価率：0%を青、25〜31を白グラデ、32%以上を赤
+function rateStyleBySpec(rate){
+  if (rate == null) return "";
+
+  const pct = rate * 100;
+
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  const mix = (a,b,t) => Math.round(a + (b-a)*t);
+
+  const BLUE  = { r: 30,  g: 107, b: 255 }; // 青
+  const WHITE = { r: 255, g: 255, b: 255 }; // 白
+  const RED   = { r: 217, g: 48,  b: 37  }; // 赤
+
+  let bg = WHITE;
+
+  if (pct >= 32) {
+    bg = RED;
+  } else if (pct >= 25) {
+    // 25〜31：白のグラデ（薄いグレー→白）
+    const t = clamp01((pct - 25) / (31 - 25));
+    const start = { r: 245, g: 245, b: 245 };
+    bg = { r: mix(start.r, WHITE.r, t), g: mix(start.g, WHITE.g, t), b: mix(start.b, WHITE.b, t) };
+  } else {
+    // 0〜25：青→白のグラデ（0%が一番青）
+    const t = clamp01(pct / 25);
+    bg = { r: mix(BLUE.r, WHITE.r, t), g: mix(BLUE.g, WHITE.g, t), b: mix(BLUE.b, WHITE.b, t) };
+  }
+
+  // 赤 or 暗い背景なら文字は白、それ以外は黒
+  const luminance = (0.2126*bg.r + 0.7152*bg.g + 0.0722*bg.b) / 255;
+  const text = (pct >= 32 || luminance < 0.55) ? "#fff" : "#222";
+
+  return [
+    `background: rgb(${bg.r}, ${bg.g}, ${bg.b});`,
+    `color: ${text};`,
+    `font-weight: 800;`,
+    `border-radius: 8px;`,
+    `padding: 6px 10px;`,
+    `display: inline-block;`,
+    `min-width: 72px;`,
+    `text-align: right;`,
+  ].join(" ");
+}
+
+
 sync function main() {
   const summary = await fetch("../data/agg/summary.json").then(r => r.json());
   const rows = await fetch("../data/agg/by_symbol.json").then(r => r.json());
