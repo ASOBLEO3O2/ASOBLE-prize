@@ -1,0 +1,21 @@
+body { font-family: system-ui, -apple-system, sans-serif; margin: 16px; }
+.top { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; }
+h1 { margin: 0; }
+.updated { font-size: 12px; opacity: .75; }
+
+.kpi { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:12px; margin: 12px 0 16px; }
+.card { border:1px solid #ddd; border-radius: 12px; padding: 12px; }
+.label { font-size: 12px; opacity: .75; }
+.value { font-size: 22px; font-weight: 800; margin-top: 6px; }
+
+.panel { border-top: 1px solid #eee; padding-top: 12px; }
+.panelHead { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+.muted { font-size: 12px; opacity: .75; }
+
+.filters { border:1px solid #eee; border-radius: 12px; padding: 12px; margin: 10px 0 12px; }
+.filters .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+button { border:1px solid #ddd; background:#fff; padding: 8px 10px; border-radius: 10px; cursor:pointer; }
+button:hover { background:#f7f7f7; }
+input[type="search"]{ border:1px solid #ddd; border-radius: 10px; padding: 8px 10px; min-width: 220px; }
+
+.chips { display:flex; flex-wrap:wrap; gap:8px; margin
