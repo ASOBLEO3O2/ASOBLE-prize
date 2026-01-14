@@ -195,13 +195,12 @@ function render(){
   const totalClaw  = filtered.reduce((a,r) => a + num(r.claw), 0);
   const costRate   = totalSales ? (totalClaw * 1.1) / totalSales : null;
 
-  document.querySelector("#k_sales").textContent = fmtYen(totalSales);
-  document.querySelector("#k_claw").textContent  = fmtYen(totalClaw);
+document.querySelector("#k_sales").textContent = fmtYen(totalSales);
+document.querySelector("#k_claw").textContent  = fmtYen(totalClaw);
 
-  const kRate = document.querySelector("#k_rate");
-  kRate.textContent = fmtPct(costRate);
-  kRate.style = rateStyleBySpec(costRate);
-
+const kRate = document.querySelector("#k_rate");
+kRate.textContent = fmtPct(costRate);
+kRate.setAttribute("style", rateStyleBySpec(costRate));
   document.querySelector("#k_filtered").textContent =
     `選択中: ${selected.size}/${RAW_BY_SYMBOL.length} 記号`;
 
