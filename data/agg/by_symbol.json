@@ -1,0 +1,5 @@
+[
+  { "symbol": "A", "sales": 50000, "claw": 12000, "cost_rate": 0.264, "count": 10 },
+  { "symbol": "B", "sales": 40000, "claw": 15000, "cost_rate": 0.413, "count": 8 },
+  { "symbol": "(未設定)", "sales": 33456, "claw": 7567, "cost_rate": 0.249, "count": 5 }
+]
