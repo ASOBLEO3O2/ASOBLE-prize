@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DB Dashboard</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="top">
+    <h1>DB Dashboard</h1>
+    <div id="updated" class="updated">更新: -</div>
+  </header>
+
+  <section class="kpi">
+    <div class="card">
+      <div class="label">売上合計</div>
+      <div id="k_sales" class="value">-</div>
+    </div>
+    <div class="card">
+      <div class="label">消化額合計</div>
+      <div id="k_claw" class="value">-</div>
+    </div>
+    <div class="card">
+      <div class="label">原価率</div>
+      <div id="k_rate" class="value">-</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panelHead">
+      <h2>記号別 売上ランキング</h2>
+      <div id="k_filtered" class="muted"></div>
+    </div>
+
+    <div class="filters">
+      <div class="row">
+        <button id="btn_all">全選択</button>
+        <button id="btn_none">全解除</button>
+        <input id="q" type="search" placeholder="記号を検索（例: A）" />
+      </div>
+      <div id="symbol_box" class="chips"></div>
+    </div>
+
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th>記号</th>
+          <th>意味</th>
+          <th>売上</th>
+          <th>消化額</th>
+          <th>原価率</th>
+          <th>件数</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <script src="./app.js"></script>
+</body>
+</html>
