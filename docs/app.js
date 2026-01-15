@@ -1,19 +1,24 @@
 const fmtYen = (n) => n == null ? "-" : new Intl.NumberFormat("ja-JP").format(Math.round(n)) + "円";
 const fmtPct = (v) => v == null ? "-" : (v * 100).toFixed(1) + "%";
 
-let RAW_SUMMARY = null;
-let RAW_BY_SYMBOL = [];
-let RAW_MASTER = null; // { "A": "意味", ... }
+let RAW_SUMMARY = null;     // ./data/raw/summary.json
+let RAW_ROWS = [];          // ./data/raw/rows.json（279行）
+let RAW_MASTER = null;      // ./data/master/symbol_master.json（辞書）
 
-let selected = new Set();  // 選択中の記号
+// いまの「軸」：チップの対象（= group by のキー）
+// まずは「景品ジャンル」から始め、後でUIで切替を追加していく
+let axisKey = "景品ジャンル";  // 例: "3本爪", "投入法", "キャラ", "年代" など
+
+let selected = new Set();   // 選択中の軸値（= チップで選ぶ）
 let sortKey = "sales";
-let sortDir = "desc"; // "asc" | "desc"
+let sortDir = "desc";       // "asc" | "desc"
 
 async function main() {
-  RAW_SUMMARY = await fetchJson("./data/agg/summary.json");
-  RAW_BY_SYMBOL = await fetchJson("./data/agg/by_symbol.json");
+  // ★ A方式：rows.json と raw/summary.json を読む
+  RAW_SUMMARY = await fetchJson("./data/raw/summary.json");
+  RAW_ROWS = await fetchJson("./data/raw/rows.json");
 
-  // symbol_master は無くても動くように（後で入る前提）
+  // symbol_master は無くても動く（後で入る前提）
   try {
     RAW_MASTER = await fetchJson("./data/master/symbol_master.json");
   } catch (e) {
@@ -21,28 +26,30 @@ async function main() {
     RAW_MASTER = null;
   }
 
-  // 初期：全選択（(未設定)も含める）
-  selected = new Set(RAW_BY_SYMBOL.map(r => (r.symbol ?? "(未設定)")));
+  // 初期：軸の全値を全選択
+  const byAxis = buildAggByAxis(axisKey, RAW_ROWS);
+  selected = new Set(byAxis.map(r => r.axis ?? "(未設定)"));
 
-  renderSymbolChips();
+  renderSymbolChips(); // チップ生成
   wireEvents();
-  render();
+  render();            // 初回描画
 }
 
 function wireEvents() {
-  document.querySelector("#btn_all").addEventListener("click", () => {
-    selected = new Set(visibleSymbolsByQuery());
+  document.querySelector("#btn_all")?.addEventListener("click", () => {
+    selected = new Set(visibleAxisValuesByQuery());
     render();
     syncChipsChecked();
   });
 
-  document.querySelector("#btn_none").addEventListener("click", () => {
+  document.querySelector("#btn_none")?.addEventListener("click", () => {
     selected = new Set();
     render();
     syncChipsChecked();
   });
 
-  document.querySelector("#q").addEventListener("input", () => {
+  document.querySelector("#q")?.addEventListener("input", () => {
+    // 検索はチップの表示だけ更新
     renderSymbolChips();
   });
 
@@ -61,36 +68,44 @@ function wireEvents() {
   });
 }
 
+/**
+ * いまのUIは「記号チップ」前提だったので、
+ * A方式では「軸の値（例：景品ジャンル=食品）」をチップ化する。
+ */
 function renderSymbolChips() {
   const box = document.querySelector("#symbol_box");
+  if (!box) return;
   box.innerHTML = "";
 
-  const q = (document.querySelector("#q").value || "").trim().toLowerCase();
+  const q = (document.querySelector("#q")?.value || "").trim().toLowerCase();
 
-  const rows = RAW_BY_SYMBOL
+  // rows から軸別集計（チップの売上サブ表示に使う）
+  const byAxis = buildAggByAxis(axisKey, RAW_ROWS);
+
+  const rows = byAxis
     .filter(r => {
-      const sym = (r.symbol ?? "(未設定)");
+      const v = (r.axis ?? "(未設定)");
       if (!q) return true;
-      return String(sym).toLowerCase().includes(q);
+      return String(v).toLowerCase().includes(q);
     })
     .slice()
-    .sort((a,b) => String(a.symbol ?? "").localeCompare(String(b.symbol ?? ""), "ja"));
+    .sort((a, b) => String(a.axis ?? "").localeCompare(String(b.axis ?? ""), "ja"));
 
   rows.forEach(r => {
-    const sym = r.symbol ?? "(未設定)";
+    const v = r.axis ?? "(未設定)";
     const chip = document.createElement("label");
     chip.className = "chip";
     chip.innerHTML = `
       <input type="checkbox" />
-      <span class="tag">${escapeHtml(sym)}</span>
+      <span class="tag">${escapeHtml(v)}</span>
       <span class="sub">${fmtYen(r.sales)}</span>
     `;
     const cb = chip.querySelector("input");
-    cb.checked = selected.has(sym);
+    cb.checked = selected.has(v);
 
     cb.addEventListener("change", () => {
-      if (cb.checked) selected.add(sym);
-      else selected.delete(sym);
+      if (cb.checked) selected.add(v);
+      else selected.delete(v);
       render();
     });
 
@@ -100,24 +115,32 @@ function renderSymbolChips() {
 
 function syncChipsChecked() {
   document.querySelectorAll("#symbol_box .chip").forEach(chip => {
-    const sym = chip.querySelector(".tag")?.textContent ?? "";
+    const v = chip.querySelector(".tag")?.textContent ?? "";
     const cb = chip.querySelector("input");
-    cb.checked = selected.has(sym);
+    cb.checked = selected.has(v);
   });
 }
 
-function visibleSymbolsByQuery() {
-  const q = (document.querySelector("#q").value || "").trim().toLowerCase();
-  return RAW_BY_SYMBOL
-    .map(r => (r.symbol ?? "(未設定)"))
-    .filter(sym => !q || String(sym).toLowerCase().includes(q));
+function visibleAxisValuesByQuery() {
+  const q = (document.querySelector("#q")?.value || "").trim().toLowerCase();
+  const byAxis = buildAggByAxis(axisKey, RAW_ROWS);
+  return byAxis
+    .map(r => (r.axis ?? "(未設定)"))
+    .filter(v => !q || String(v).toLowerCase().includes(q));
 }
 
-function getMeaning(sym) {
+/**
+ * 「意味」列：現状は景品ジャンル軸だけ意味を出す想定
+ * （RAW_MASTERの構造がカテゴリ別辞書になっている前提）
+ *
+ * 例：axisKey="景品ジャンル" のとき、axis値がコードなら意味に変換できる。
+ * ただし A方式では axis値自体が「食品」など人間語になってることが多いので、
+ * 変換できなければそのまま空でOK。
+ */
+function getMeaningByAxisValue(axisKey, v) {
   if (!RAW_MASTER) return "";
-  // ここで「景品ジャンル」を見る（DBの「記号」は景品ジャンル記号という前提）
-  const m = RAW_MASTER["景品ジャンル"] || {};
-  return m[sym] ?? "";
+  const dict = RAW_MASTER[axisKey] || {};
+  return dict[v] ?? "";
 }
 
 /**
@@ -125,14 +148,11 @@ function getMeaning(sym) {
  * - 0%: 青
  * - 32%以上: 赤
  * - 25〜31%: 白グラデーション
- *
- * rate は 0.308 のような「割合」
  */
 function rateStyleBySpec(rate) {
   if (rate == null || !Number.isFinite(Number(rate))) return "";
   const pct = rate * 100;
 
-  // 32%以上：赤
   if (pct >= 32) {
     return `
       background: #d93025;
@@ -146,7 +166,6 @@ function rateStyleBySpec(rate) {
     `.trim();
   }
 
-  // 0%：青（0に近いほど青を濃く…まではまだ不要とのことだったので固定青）
   if (pct <= 0) {
     return `
       background: #1a73e8;
@@ -160,10 +179,9 @@ function rateStyleBySpec(rate) {
     `.trim();
   }
 
-  // 25〜31：白グラデーション（25→薄い / 31→濃い）
   if (pct >= 25 && pct <= 31) {
     const t = (pct - 25) / (31 - 25); // 0..1
-    const alpha = 0.15 + t * 0.60;   // 0.15..0.75 いい感じに見える範囲
+    const alpha = 0.15 + t * 0.60;   // 0.15..0.75
     return `
       background: rgba(255,255,255,${alpha});
       color: #111;
@@ -177,8 +195,6 @@ function rateStyleBySpec(rate) {
     `.trim();
   }
 
-  // それ以外（0〜25未満、31〜32未満）は一旦「何も塗らない」扱いにしてもいいが、
-  // 仕様に明記がないので "薄い青" に寄せる（見やすさ優先）
   if (pct < 25) {
     return `
       background: rgba(26,115,232,0.20);
@@ -193,7 +209,6 @@ function rateStyleBySpec(rate) {
     `.trim();
   }
 
-  // 31〜32未満（赤に行く直前）：薄い赤
   return `
     background: rgba(217,48,37,0.20);
     color: #111;
@@ -207,17 +222,48 @@ function rateStyleBySpec(rate) {
   `.trim();
 }
 
+/**
+ * ★A方式の核：rows → 軸別集計（RAW_BY_SYMBOL相当）を作る
+ * 出力の形は、既存UIに合わせて：
+ * { axis, sales, claw, cost_rate, count }
+ */
+function buildAggByAxis(axisKey, rows) {
+  const map = new Map();
+
+  for (const r of rows) {
+    // rows.json の構造は build_data.mjs が作ったもの
+    // 例: r["景品ジャンル"] / r["3本爪"] / r["投入法"] ... が入っている想定
+    const axisVal = (r?.[axisKey] ?? "").trim() || "(未設定)";
+
+    const cur = map.get(axisVal) || { axis: axisVal, sales: 0, claw: 0, count: 0 };
+    cur.sales += num(r.sales);
+    cur.claw += num(r.claw);
+    cur.count += 1; // ★ST数＝行数（ブースID＝マシン数）
+    map.set(axisVal, cur);
+  }
+
+  const arr = Array.from(map.values()).map(o => {
+    const cost_rate = o.sales ? (o.claw * 1.1) / o.sales : null;
+    return { ...o, cost_rate };
+  });
+
+  return arr;
+}
+
 function render() {
-  // 更新日時
+  // 更新日時（raw summary）
   document.querySelector("#updated").textContent =
     "更新: " + new Date(RAW_SUMMARY.updated_at).toLocaleString("ja-JP");
 
-  // 選択フィルタ
-  const filtered = RAW_BY_SYMBOL.filter(r => selected.has(r.symbol ?? "(未設定)"));
+  // まず軸別集計を作る
+  const byAxis = buildAggByAxis(axisKey, RAW_ROWS);
 
-  // KPI：選択中の合計
-  const totalSales = filtered.reduce((a, r) => a + num(r.sales), 0);
-  const totalClaw  = filtered.reduce((a, r) => a + num(r.claw), 0);
+  // チップ選択でフィルタ（＝軸値の絞り込み）
+  const filteredAgg = byAxis.filter(r => selected.has(r.axis ?? "(未設定)"));
+
+  // KPI：選択中の合計（フィルタ後の合計）
+  const totalSales = filteredAgg.reduce((a, r) => a + num(r.sales), 0);
+  const totalClaw  = filteredAgg.reduce((a, r) => a + num(r.claw), 0);
   const costRate   = totalSales ? (totalClaw * 1.1) / totalSales : null;
 
   document.querySelector("#k_sales").textContent = fmtYen(totalSales);
@@ -227,24 +273,24 @@ function render() {
   kRate.textContent = fmtPct(costRate);
   kRate.setAttribute("style", rateStyleBySpec(costRate));
 
-  // フィルタ状況
+  // フィルタ状況（選択中カテゴリ数/全カテゴリ数）
   document.querySelector("#k_filtered").textContent =
-    `選択中: ${selected.size}/${RAW_BY_SYMBOL.length} 記号`;
+    `選択中: ${selected.size}/${byAxis.length} ${escapeHtml(axisKey)}`;
 
-  // ソート
-  const sorted = filtered.slice().sort((a, b) => cmp(a, b, sortKey, sortDir));
+  // ソート（既存のsortKeyは sales/claw/cost_rate/count を想定）
+  const sorted = filteredAgg.slice().sort((a, b) => cmpAgg(a, b, sortKey, sortDir));
 
   // テーブル描画
   const tb = document.querySelector("#tbl tbody");
   tb.innerHTML = "";
 
   sorted.forEach(r => {
-    const sym = r.symbol ?? "(未設定)";
-    const meaning = getMeaning(sym);
+    const axisVal = r.axis ?? "(未設定)";
+    const meaning = getMeaningByAxisValue(axisKey, axisVal);
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${escapeHtml(sym)}</td>
+      <td>${escapeHtml(axisVal)}</td>
       <td class="meaning" title="${escapeHtml(meaning)}">${escapeHtml(meaning)}</td>
       <td>${fmtYen(num(r.sales))}</td>
       <td>${fmtYen(num(r.claw))}</td>
@@ -254,14 +300,16 @@ function render() {
     tb.appendChild(tr);
   });
 
+  // 検索でチップが再生成されてる場合があるので、同期
   syncChipsChecked();
 }
 
-function cmp(a, b, key, dir) {
+function cmpAgg(a, b, key, dir) {
   const s = (dir === "desc") ? -1 : 1;
 
+  // 既存UIの th[data-sort="symbol"] を「軸の文字列」に読み替える
   if (key === "symbol") {
-    return s * String(a.symbol ?? "").localeCompare(String(b.symbol ?? ""), "ja");
+    return s * String(a.axis ?? "").localeCompare(String(b.axis ?? ""), "ja");
   }
 
   const av = num(a[key]);
