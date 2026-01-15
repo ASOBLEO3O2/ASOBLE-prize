@@ -1,0 +1,10 @@
+{
+  "name": "asoble-prize-dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "update": "npm run update:master && npm run update:db",
+    "update:master": "node scripts/collect_symbol_master_multi.js",
+    "update:db": "node scripts/collect_db_agg_by_symbol.js"
+  }
+}
