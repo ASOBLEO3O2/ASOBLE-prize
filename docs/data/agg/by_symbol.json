@@ -1,5 +1,1346 @@
 [
-  { "symbol": "A", "sales": 50000, "claw": 12000, "cost_rate": 0.264, "count": 10 },
-  { "symbol": "B", "sales": 40000, "claw": 15000, "cost_rate": 0.413, "count": 8 },
-  { "symbol": "(未設定)", "sales": 33456, "claw": 7567, "cost_rate": 0.249, "count": 5 }
+  {
+    "symbol": "513A2A3E2A221",
+    "sales": 135800,
+    "claw": 33320,
+    "count": 1,
+    "cost_rate": 0.26989690721649484
+  },
+  {
+    "symbol": "112A1B2D2B222",
+    "sales": 32200,
+    "claw": 6840,
+    "count": 1,
+    "cost_rate": 0.23366459627329195
+  },
+  {
+    "symbol": "112E1B2D2B222",
+    "sales": 46500,
+    "claw": 8560,
+    "count": 2,
+    "cost_rate": 0.20249462365591397
+  },
+  {
+    "symbol": "112A3H3B1C212",
+    "sales": 32900,
+    "claw": 8730,
+    "count": 1,
+    "cost_rate": 0.29188449848024317
+  },
+  {
+    "symbol": "212B3I3D1Q212",
+    "sales": 30000,
+    "claw": 7000,
+    "count": 1,
+    "cost_rate": 0.2566666666666667
+  },
+  {
+    "symbol": "112B3I1D1Q212",
+    "sales": 37900,
+    "claw": 9000,
+    "count": 1,
+    "cost_rate": 0.2612137203166227
+  },
+  {
+    "symbol": "212B3I1D1Q212",
+    "sales": 36900,
+    "claw": 14970,
+    "count": 1,
+    "cost_rate": 0.44626016260162604
+  },
+  {
+    "symbol": "112F1B2D2B222",
+    "sales": 24400,
+    "claw": 11690,
+    "count": 1,
+    "cost_rate": 0.5270081967213115
+  },
+  {
+    "symbol": "112A1A3E2B222",
+    "sales": 37700,
+    "claw": 5010,
+    "count": 1,
+    "cost_rate": 0.14618037135278514
+  },
+  {
+    "symbol": "112F3J3A1L222",
+    "sales": 34500,
+    "claw": 9680,
+    "count": 1,
+    "cost_rate": 0.3086376811594203
+  },
+  {
+    "symbol": "112A3J3A1L222",
+    "sales": 30300,
+    "claw": 3880,
+    "count": 1,
+    "cost_rate": 0.14085808580858086
+  },
+  {
+    "symbol": "112E1D1E2B222",
+    "sales": 16000,
+    "claw": 2792,
+    "count": 1,
+    "cost_rate": 0.19195
+  },
+  {
+    "symbol": "112A1C3E2B222",
+    "sales": 46200,
+    "claw": 7155,
+    "count": 1,
+    "cost_rate": 0.17035714285714287
+  },
+  {
+    "symbol": "112A1D3B2B222",
+    "sales": 39500,
+    "claw": 11520,
+    "count": 1,
+    "cost_rate": 0.32081012658227853
+  },
+  {
+    "symbol": "112C1F3E2B222",
+    "sales": 21600,
+    "claw": 10830,
+    "count": 1,
+    "cost_rate": 0.5515277777777778
+  },
+  {
+    "symbol": "112C1G3E2B222",
+    "sales": 34900,
+    "claw": 6640,
+    "count": 1,
+    "cost_rate": 0.20928366762177653
+  },
+  {
+    "symbol": "112C1G3D2B222",
+    "sales": 39500,
+    "claw": 9673,
+    "count": 1,
+    "cost_rate": 0.26937468354430383
+  },
+  {
+    "symbol": "112F1B3E2B222",
+    "sales": 13700,
+    "claw": 2680,
+    "count": 1,
+    "cost_rate": 0.21518248175182486
+  },
+  {
+    "symbol": "112F1B3B2B222",
+    "sales": 42800,
+    "claw": 23636,
+    "count": 1,
+    "cost_rate": 0.6074672897196263
+  },
+  {
+    "symbol": "112F1B2C2B222",
+    "sales": 39000,
+    "claw": 6600,
+    "count": 2,
+    "cost_rate": 0.18615384615384617
+  },
+  {
+    "symbol": "112E1B3E2B222",
+    "sales": 13600,
+    "claw": 1980,
+    "count": 1,
+    "cost_rate": 0.16014705882352942
+  },
+  {
+    "symbol": "112F1C3E2B222",
+    "sales": 26600,
+    "claw": 4815,
+    "count": 1,
+    "cost_rate": 0.19911654135338347
+  },
+  {
+    "symbol": "112F1A3B2B222",
+    "sales": 37300,
+    "claw": 9520,
+    "count": 1,
+    "cost_rate": 0.28075067024128686
+  },
+  {
+    "symbol": "212B3I1B1C222",
+    "sales": 14700,
+    "claw": 2000,
+    "count": 1,
+    "cost_rate": 0.14965986394557823
+  },
+  {
+    "symbol": "212A3J1B1H212",
+    "sales": 45700,
+    "claw": 6000,
+    "count": 1,
+    "cost_rate": 0.14442013129102846
+  },
+  {
+    "symbol": "112B3K2D1E222",
+    "sales": 19900,
+    "claw": 3950,
+    "count": 1,
+    "cost_rate": 0.21834170854271356
+  },
+  {
+    "symbol": "112A3J2B2B222",
+    "sales": 46200,
+    "claw": 2895,
+    "count": 1,
+    "cost_rate": 0.06892857142857144
+  },
+  {
+    "symbol": "112A3A1D2B221",
+    "sales": 48900,
+    "claw": 9700,
+    "count": 1,
+    "cost_rate": 0.218200408997955
+  },
+  {
+    "symbol": "112F3A1D2B222",
+    "sales": 18200,
+    "claw": 0,
+    "count": 1,
+    "cost_rate": 0
+  },
+  {
+    "symbol": "112E3J3A2B222",
+    "sales": 72200,
+    "claw": 16200,
+    "count": 1,
+    "cost_rate": 0.24681440443213296
+  },
+  {
+    "symbol": "112F1A3B1Q222",
+    "sales": 12400,
+    "claw": 5688,
+    "count": 1,
+    "cost_rate": 0.5045806451612903
+  },
+  {
+    "symbol": "212A3A1D2B222",
+    "sales": 49200,
+    "claw": 7800,
+    "count": 1,
+    "cost_rate": 0.174390243902439
+  },
+  {
+    "symbol": "112E3I1D1Q212",
+    "sales": 36100,
+    "claw": 5000,
+    "count": 1,
+    "cost_rate": 0.1523545706371191
+  },
+  {
+    "symbol": "313A2A2D1E212",
+    "sales": 16400,
+    "claw": 4000,
+    "count": 1,
+    "cost_rate": 0.2682926829268293
+  },
+  {
+    "symbol": "113A2A3D2A222",
+    "sales": 30800,
+    "claw": 7832,
+    "count": 1,
+    "cost_rate": 0.27971428571428575
+  },
+  {
+    "symbol": "213A2A2D1O112",
+    "sales": 37500,
+    "claw": 8865,
+    "count": 1,
+    "cost_rate": 0.26004
+  },
+  {
+    "symbol": "213A2E2C1O112",
+    "sales": 39500,
+    "claw": 9000,
+    "count": 1,
+    "cost_rate": 0.25063291139240507
+  },
+  {
+    "symbol": "113B3G2D1E222",
+    "sales": 50300,
+    "claw": 15435,
+    "count": 3,
+    "cost_rate": 0.337544731610338
+  },
+  {
+    "symbol": "113A1A3E2B222",
+    "sales": 13300,
+    "claw": 2910,
+    "count": 1,
+    "cost_rate": 0.24067669172932335
+  },
+  {
+    "symbol": "113B1A1B2B222",
+    "sales": 40400,
+    "claw": 14728,
+    "count": 2,
+    "cost_rate": 0.40100990099009903
+  },
+  {
+    "symbol": "113A2A2C1B212",
+    "sales": 27700,
+    "claw": 6000,
+    "count": 1,
+    "cost_rate": 0.23826714801444046
+  },
+  {
+    "symbol": "113B2B2C1B212",
+    "sales": 18500,
+    "claw": 9000,
+    "count": 1,
+    "cost_rate": 0.5351351351351351
+  },
+  {
+    "symbol": "113B3K2D1S222",
+    "sales": 40400,
+    "claw": 9800,
+    "count": 1,
+    "cost_rate": 0.26683168316831685
+  },
+  {
+    "symbol": "113B3G2D1D222",
+    "sales": 18900,
+    "claw": 4875,
+    "count": 1,
+    "cost_rate": 0.2837301587301587
+  },
+  {
+    "symbol": "113A3J1B2B222",
+    "sales": 49800,
+    "claw": 10339,
+    "count": 2,
+    "cost_rate": 0.22837148594377513
+  },
+  {
+    "symbol": "113A2A1B2A222",
+    "sales": 41700,
+    "claw": 11620,
+    "count": 1,
+    "cost_rate": 0.30652278177458037
+  },
+  {
+    "symbol": "113A2A1B1C212",
+    "sales": 23600,
+    "claw": 7000,
+    "count": 1,
+    "cost_rate": 0.326271186440678
+  },
+  {
+    "symbol": "113A2A1B1A212",
+    "sales": 79000,
+    "claw": 37000,
+    "count": 2,
+    "cost_rate": 0.5151898734177215
+  },
+  {
+    "symbol": "113A3C1B1A212",
+    "sales": 26200,
+    "claw": 9850,
+    "count": 1,
+    "cost_rate": 0.4135496183206107
+  },
+  {
+    "symbol": "113B2B1B1A212",
+    "sales": 38700,
+    "claw": 9000,
+    "count": 1,
+    "cost_rate": 0.2558139534883721
+  },
+  {
+    "symbol": "113B2B3B1A212",
+    "sales": 21200,
+    "claw": 7200,
+    "count": 1,
+    "cost_rate": 0.3735849056603774
+  },
+  {
+    "symbol": "113A2A1D1J222",
+    "sales": 65200,
+    "claw": 19400,
+    "count": 1,
+    "cost_rate": 0.3273006134969325
+  },
+  {
+    "symbol": "113A2E2D2B222",
+    "sales": 27100,
+    "claw": 16320,
+    "count": 1,
+    "cost_rate": 0.6624354243542435
+  },
+  {
+    "symbol": "113B2B3B2B222",
+    "sales": 15400,
+    "claw": 9035,
+    "count": 1,
+    "cost_rate": 0.6453571428571429
+  },
+  {
+    "symbol": "113B2B3B2A222",
+    "sales": 18700,
+    "claw": 5560,
+    "count": 1,
+    "cost_rate": 0.3270588235294118
+  },
+  {
+    "symbol": "112D3K3D1L222",
+    "sales": 29200,
+    "claw": 9730,
+    "count": 1,
+    "cost_rate": 0.36654109589041095
+  },
+  {
+    "symbol": "112D3K2D1E222",
+    "sales": 7100,
+    "claw": 5390,
+    "count": 1,
+    "cost_rate": 0.8350704225352114
+  },
+  {
+    "symbol": "113B2B2D1E212",
+    "sales": 83300,
+    "claw": 22860,
+    "count": 3,
+    "cost_rate": 0.3018727490996399
+  },
+  {
+    "symbol": "132D1F3E2B222",
+    "sales": 17500,
+    "claw": 2288,
+    "count": 1,
+    "cost_rate": 0.14381714285714287
+  },
+  {
+    "symbol": "112D1F3E2B222",
+    "sales": 39400,
+    "claw": 4100,
+    "count": 1,
+    "cost_rate": 0.11446700507614213
+  },
+  {
+    "symbol": "113A2B2A1F222",
+    "sales": 24100,
+    "claw": 10400,
+    "count": 1,
+    "cost_rate": 0.474688796680498
+  },
+  {
+    "symbol": "113A2B2D1O212",
+    "sales": 13000,
+    "claw": 4000,
+    "count": 1,
+    "cost_rate": 0.3384615384615385
+  },
+  {
+    "symbol": "113B2B2D1S222",
+    "sales": 25800,
+    "claw": 5868,
+    "count": 1,
+    "cost_rate": 0.2501860465116279
+  },
+  {
+    "symbol": "113B3C2D1S222",
+    "sales": 24600,
+    "claw": 6790,
+    "count": 1,
+    "cost_rate": 0.3036178861788618
+  },
+  {
+    "symbol": "113B3G2A1Q222",
+    "sales": 35500,
+    "claw": 8775,
+    "count": 1,
+    "cost_rate": 0.2719014084507042
+  },
+  {
+    "symbol": "113A3G3A1L222",
+    "sales": 41900,
+    "claw": 8640,
+    "count": 1,
+    "cost_rate": 0.22682577565632459
+  },
+  {
+    "symbol": "113B2B2C1Q212",
+    "sales": 44400,
+    "claw": 24000,
+    "count": 2,
+    "cost_rate": 0.5945945945945946
+  },
+  {
+    "symbol": "113B2E2D1E222",
+    "sales": 14100,
+    "claw": 3600,
+    "count": 1,
+    "cost_rate": 0.28085106382978725
+  },
+  {
+    "symbol": "113A2A1B1K222",
+    "sales": 74800,
+    "claw": 28740,
+    "count": 2,
+    "cost_rate": 0.4226470588235295
+  },
+  {
+    "symbol": "113C1D3B2B222",
+    "sales": 9600,
+    "claw": 5200,
+    "count": 1,
+    "cost_rate": 0.5958333333333334
+  },
+  {
+    "symbol": "113B1G3D2B222",
+    "sales": 17600,
+    "claw": 4347,
+    "count": 1,
+    "cost_rate": 0.2716875
+  },
+  {
+    "symbol": "113B1B2C2B222",
+    "sales": 21100,
+    "claw": 4550,
+    "count": 1,
+    "cost_rate": 0.23720379146919432
+  },
+  {
+    "symbol": "113A2B2B1Q212",
+    "sales": 10700,
+    "claw": 4725,
+    "count": 1,
+    "cost_rate": 0.48574766355140186
+  },
+  {
+    "symbol": "113A2E3A1L222",
+    "sales": 27800,
+    "claw": 18430,
+    "count": 1,
+    "cost_rate": 0.7292446043165468
+  },
+  {
+    "symbol": "113B2C3A1A222",
+    "sales": 28000,
+    "claw": 21360,
+    "count": 1,
+    "cost_rate": 0.8391428571428573
+  },
+  {
+    "symbol": "113B3G3A1L222",
+    "sales": 29900,
+    "claw": 7760,
+    "count": 1,
+    "cost_rate": 0.28548494983277595
+  },
+  {
+    "symbol": "113B2C3B1P212",
+    "sales": 13800,
+    "claw": 3920,
+    "count": 1,
+    "cost_rate": 0.312463768115942
+  },
+  {
+    "symbol": "113B2C2D1Q222",
+    "sales": 23400,
+    "claw": 5280,
+    "count": 2,
+    "cost_rate": 0.24820512820512824
+  },
+  {
+    "symbol": "113B2C2D1O212",
+    "sales": 29400,
+    "claw": 8667,
+    "count": 2,
+    "cost_rate": 0.3242755102040817
+  },
+  {
+    "symbol": "113B2C1B1P212",
+    "sales": 25100,
+    "claw": 6871,
+    "count": 2,
+    "cost_rate": 0.3011195219123506
+  },
+  {
+    "symbol": "113B2C2C1O212",
+    "sales": 25600,
+    "claw": 6923,
+    "count": 1,
+    "cost_rate": 0.29747265625
+  },
+  {
+    "symbol": "113B3K2B2B222",
+    "sales": 79500,
+    "claw": 24456,
+    "count": 3,
+    "cost_rate": 0.3383849056603774
+  },
+  {
+    "symbol": "113B2C2C1R222",
+    "sales": 83100,
+    "claw": 30175,
+    "count": 4,
+    "cost_rate": 0.3994283995186522
+  },
+  {
+    "symbol": "213A2A3B1A212",
+    "sales": 37900,
+    "claw": 8000,
+    "count": 1,
+    "cost_rate": 0.23218997361477572
+  },
+  {
+    "symbol": "213B2A2D1E212",
+    "sales": 14400,
+    "claw": 3876,
+    "count": 1,
+    "cost_rate": 0.29608333333333337
+  },
+  {
+    "symbol": "113B3C2C1E222",
+    "sales": 13500,
+    "claw": 3880,
+    "count": 1,
+    "cost_rate": 0.3161481481481481
+  },
+  {
+    "symbol": "113A3D3E1E222",
+    "sales": 117000,
+    "claw": 43041,
+    "count": 11,
+    "cost_rate": 0.4046589743589744
+  },
+  {
+    "symbol": "113A3D2C1Q212",
+    "sales": 9400,
+    "claw": 3076,
+    "count": 1,
+    "cost_rate": 0.35995744680851066
+  },
+  {
+    "symbol": "113A2C3E1F222",
+    "sales": 25700,
+    "claw": 10425,
+    "count": 1,
+    "cost_rate": 0.44620622568093393
+  },
+  {
+    "symbol": "113A1C2B1Q222",
+    "sales": 41000,
+    "claw": 10467,
+    "count": 2,
+    "cost_rate": 0.2808219512195122
+  },
+  {
+    "symbol": "113A2C3E1C222",
+    "sales": 77000,
+    "claw": 25409,
+    "count": 2,
+    "cost_rate": 0.3629857142857143
+  },
+  {
+    "symbol": "113A3F3E2B222",
+    "sales": 32500,
+    "claw": 15400,
+    "count": 3,
+    "cost_rate": 0.5212307692307693
+  },
+  {
+    "symbol": "113A3B1B2A222",
+    "sales": 35100,
+    "claw": 9960,
+    "count": 1,
+    "cost_rate": 0.3121367521367521
+  },
+  {
+    "symbol": "113A3B3A1L222",
+    "sales": 28100,
+    "claw": 7710,
+    "count": 2,
+    "cost_rate": 0.3018149466192171
+  },
+  {
+    "symbol": "113A2C3E1A222",
+    "sales": 21200,
+    "claw": 5680,
+    "count": 1,
+    "cost_rate": 0.2947169811320755
+  },
+  {
+    "symbol": "113A3K3E1E222",
+    "sales": 13100,
+    "claw": 3900,
+    "count": 1,
+    "cost_rate": 0.32748091603053436
+  },
+  {
+    "symbol": "113A2B2C1D222",
+    "sales": 29700,
+    "claw": 19284,
+    "count": 1,
+    "cost_rate": 0.7142222222222223
+  },
+  {
+    "symbol": "113A2D3C2B222",
+    "sales": 26100,
+    "claw": 12860,
+    "count": 1,
+    "cost_rate": 0.541992337164751
+  },
+  {
+    "symbol": "113A2C3B1K222",
+    "sales": 52400,
+    "claw": 12260,
+    "count": 2,
+    "cost_rate": 0.2573664122137405
+  },
+  {
+    "symbol": "113A2F3B1K222",
+    "sales": 45200,
+    "claw": 11829,
+    "count": 2,
+    "cost_rate": 0.28787389380530976
+  },
+  {
+    "symbol": "113A2C3E1E222",
+    "sales": 23500,
+    "claw": 5527,
+    "count": 1,
+    "cost_rate": 0.2587106382978724
+  },
+  {
+    "symbol": "113A3G3E1E222",
+    "sales": 18500,
+    "claw": 9700,
+    "count": 1,
+    "cost_rate": 0.5767567567567567
+  },
+  {
+    "symbol": "113A2C3E1J211",
+    "sales": 20800,
+    "claw": 5950,
+    "count": 1,
+    "cost_rate": 0.3146634615384616
+  },
+  {
+    "symbol": "113A2C3E1B222",
+    "sales": 14800,
+    "claw": 4250,
+    "count": 1,
+    "cost_rate": 0.3158783783783784
+  },
+  {
+    "symbol": "113A2C1D2A221",
+    "sales": 83000,
+    "claw": 19720,
+    "count": 1,
+    "cost_rate": 0.26134939759036147
+  },
+  {
+    "symbol": "113A2C3E1J221",
+    "sales": 16200,
+    "claw": 4080,
+    "count": 1,
+    "cost_rate": 0.277037037037037
+  },
+  {
+    "symbol": "113B2C2B2A212",
+    "sales": 21800,
+    "claw": 6151,
+    "count": 1,
+    "cost_rate": 0.31037155963302754
+  },
+  {
+    "symbol": "113B2C2B2A222",
+    "sales": 58400,
+    "claw": 14739,
+    "count": 3,
+    "cost_rate": 0.2776181506849315
+  },
+  {
+    "symbol": "113B2C2C1Q212",
+    "sales": 14100,
+    "claw": 9230,
+    "count": 2,
+    "cost_rate": 0.7200709219858156
+  },
+  {
+    "symbol": "113B3D2D1B222",
+    "sales": 23700,
+    "claw": 5650,
+    "count": 4,
+    "cost_rate": 0.26223628691983125
+  },
+  {
+    "symbol": "113B2F2D1E222",
+    "sales": 123700,
+    "claw": 31080,
+    "count": 3,
+    "cost_rate": 0.27637833468067907
+  },
+  {
+    "symbol": "113B3D2D1E222",
+    "sales": 23700,
+    "claw": 5310,
+    "count": 1,
+    "cost_rate": 0.2464556962025317
+  },
+  {
+    "symbol": "113B3K2D1E222",
+    "sales": 58700,
+    "claw": 24350,
+    "count": 3,
+    "cost_rate": 0.45630323679727436
+  },
+  {
+    "symbol": "113B2D2A1M112",
+    "sales": 11000,
+    "claw": 7510,
+    "count": 1,
+    "cost_rate": 0.751
+  },
+  {
+    "symbol": "113B2F2A1M222",
+    "sales": 24400,
+    "claw": 15008,
+    "count": 1,
+    "cost_rate": 0.6765901639344264
+  },
+  {
+    "symbol": "113B2C3B1A222",
+    "sales": 50200,
+    "claw": 13762,
+    "count": 2,
+    "cost_rate": 0.3015577689243028
+  },
+  {
+    "symbol": "113B1C3B1A222",
+    "sales": 15000,
+    "claw": 4347,
+    "count": 1,
+    "cost_rate": 0.31878000000000006
+  },
+  {
+    "symbol": "113B3C3B1A222",
+    "sales": 9500,
+    "claw": 2360,
+    "count": 1,
+    "cost_rate": 0.2732631578947368
+  },
+  {
+    "symbol": "113B3D3B1A222",
+    "sales": 11000,
+    "claw": 2950,
+    "count": 1,
+    "cost_rate": 0.29500000000000004
+  },
+  {
+    "symbol": "113B2C3B1A212",
+    "sales": 72600,
+    "claw": 21554,
+    "count": 2,
+    "cost_rate": 0.3265757575757576
+  },
+  {
+    "symbol": "113B2F3B1A212",
+    "sales": 14300,
+    "claw": 4034,
+    "count": 1,
+    "cost_rate": 0.31030769230769234
+  },
+  {
+    "symbol": "113B3C2B2B222",
+    "sales": 8700,
+    "claw": 2576,
+    "count": 1,
+    "cost_rate": 0.3257011494252874
+  },
+  {
+    "symbol": "113B3C2D1E222",
+    "sales": 11700,
+    "claw": 3570,
+    "count": 1,
+    "cost_rate": 0.33564102564102566
+  },
+  {
+    "symbol": "113B3K1B1C222",
+    "sales": 17100,
+    "claw": 4450,
+    "count": 1,
+    "cost_rate": 0.2862573099415205
+  },
+  {
+    "symbol": "113B3K1B1P212",
+    "sales": 18800,
+    "claw": 3000,
+    "count": 1,
+    "cost_rate": 0.17553191489361705
+  },
+  {
+    "symbol": "113B3B1B2B222",
+    "sales": 14500,
+    "claw": 7140,
+    "count": 1,
+    "cost_rate": 0.5416551724137931
+  },
+  {
+    "symbol": "113B3J1A2B222",
+    "sales": 25900,
+    "claw": 8075,
+    "count": 1,
+    "cost_rate": 0.34295366795366794
+  },
+  {
+    "symbol": "113B2C1B1K222",
+    "sales": 36300,
+    "claw": 11700,
+    "count": 2,
+    "cost_rate": 0.3545454545454546
+  },
+  {
+    "symbol": "113B2F2C1Q212",
+    "sales": 9000,
+    "claw": 3240,
+    "count": 1,
+    "cost_rate": 0.3960000000000001
+  },
+  {
+    "symbol": "113B3D2C1O122",
+    "sales": 48000,
+    "claw": 6715,
+    "count": 1,
+    "cost_rate": 0.1538854166666667
+  },
+  {
+    "symbol": "113B2D1B1P212",
+    "sales": 16500,
+    "claw": 5000,
+    "count": 1,
+    "cost_rate": 0.3333333333333333
+  },
+  {
+    "symbol": "113B2C3A1L222",
+    "sales": 87800,
+    "claw": 22168,
+    "count": 4,
+    "cost_rate": 0.2777312072892939
+  },
+  {
+    "symbol": "113B2C3D2A222",
+    "sales": 23600,
+    "claw": 10763,
+    "count": 1,
+    "cost_rate": 0.5016652542372881
+  },
+  {
+    "symbol": "113B3B3D2A222",
+    "sales": 40100,
+    "claw": 18700,
+    "count": 1,
+    "cost_rate": 0.5129675810473815
+  },
+  {
+    "symbol": "113B3J3A1L222",
+    "sales": 15600,
+    "claw": 4152,
+    "count": 1,
+    "cost_rate": 0.29276923076923084
+  },
+  {
+    "symbol": "113B2C3A1L212",
+    "sales": 9800,
+    "claw": 5714,
+    "count": 1,
+    "cost_rate": 0.6413673469387756
+  },
+  {
+    "symbol": "113B2B3A1L222",
+    "sales": 26400,
+    "claw": 6804,
+    "count": 1,
+    "cost_rate": 0.28350000000000003
+  },
+  {
+    "symbol": "113B1C2B2B222",
+    "sales": 38500,
+    "claw": 9310,
+    "count": 1,
+    "cost_rate": 0.266
+  },
+  {
+    "symbol": "113B2D3A1L222",
+    "sales": 33500,
+    "claw": 13200,
+    "count": 1,
+    "cost_rate": 0.4334328358208956
+  },
+  {
+    "symbol": "113B3E2D1E222",
+    "sales": 21500,
+    "claw": 6050,
+    "count": 2,
+    "cost_rate": 0.3095348837209303
+  },
+  {
+    "symbol": "113B3K2C1Q222",
+    "sales": 6700,
+    "claw": 1290,
+    "count": 1,
+    "cost_rate": 0.21179104477611943
+  },
+  {
+    "symbol": "113B2D2C1O112",
+    "sales": 15300,
+    "claw": 4000,
+    "count": 1,
+    "cost_rate": 0.2875816993464052
+  },
+  {
+    "symbol": "113C3J3B1A222",
+    "sales": 43400,
+    "claw": 11480,
+    "count": 1,
+    "cost_rate": 0.2909677419354839
+  },
+  {
+    "symbol": "113C1C3A1L222",
+    "sales": 17200,
+    "claw": 1513,
+    "count": 1,
+    "cost_rate": 0.09676162790697676
+  },
+  {
+    "symbol": "113B2D2D1Q222",
+    "sales": 18200,
+    "claw": 5170,
+    "count": 1,
+    "cost_rate": 0.3124725274725275
+  },
+  {
+    "symbol": "113C3J1B2B222",
+    "sales": 13600,
+    "claw": 2380,
+    "count": 1,
+    "cost_rate": 0.1925
+  },
+  {
+    "symbol": "113C2D2B2A222",
+    "sales": 24500,
+    "claw": 8193,
+    "count": 3,
+    "cost_rate": 0.36784897959183677
+  },
+  {
+    "symbol": "113A2D2B1B222",
+    "sales": 18200,
+    "claw": 4950,
+    "count": 1,
+    "cost_rate": 0.29917582417582417
+  },
+  {
+    "symbol": "113A2D2B1O122",
+    "sales": 49000,
+    "claw": 14700,
+    "count": 1,
+    "cost_rate": 0.33
+  },
+  {
+    "symbol": "113C3K2B1E222",
+    "sales": 36300,
+    "claw": 10855,
+    "count": 2,
+    "cost_rate": 0.328939393939394
+  },
+  {
+    "symbol": "113A2D3A1L222",
+    "sales": 39300,
+    "claw": 12154,
+    "count": 3,
+    "cost_rate": 0.34018829516539445
+  },
+  {
+    "symbol": "113B2D2B1B222",
+    "sales": 11300,
+    "claw": 2700,
+    "count": 1,
+    "cost_rate": 0.2628318584070797
+  },
+  {
+    "symbol": "113A3I3B1P222",
+    "sales": 6800,
+    "claw": 1000,
+    "count": 1,
+    "cost_rate": 0.16176470588235295
+  },
+  {
+    "symbol": "113A3I3E1P222",
+    "sales": 6100,
+    "claw": 1000,
+    "count": 1,
+    "cost_rate": 0.18032786885245902
+  },
+  {
+    "symbol": "113A3J3A1L222",
+    "sales": 9300,
+    "claw": 1945,
+    "count": 1,
+    "cost_rate": 0.2300537634408602
+  },
+  {
+    "symbol": "113A2D3A1M212",
+    "sales": 6500,
+    "claw": 2731,
+    "count": 1,
+    "cost_rate": 0.46216923076923083
+  },
+  {
+    "symbol": "113A3J3E1A222",
+    "sales": 14400,
+    "claw": 5280,
+    "count": 2,
+    "cost_rate": 0.4033333333333334
+  },
+  {
+    "symbol": "113A2D3E1Q212",
+    "sales": 42300,
+    "claw": 15521,
+    "count": 4,
+    "cost_rate": 0.4036193853427896
+  },
+  {
+    "symbol": "113C3J3B2A222",
+    "sales": 14700,
+    "claw": 1707,
+    "count": 1,
+    "cost_rate": 0.12773469387755101
+  },
+  {
+    "symbol": "113C3J3B2B222",
+    "sales": 25300,
+    "claw": 2796,
+    "count": 2,
+    "cost_rate": 0.12156521739130437
+  },
+  {
+    "symbol": "113A2D3E1Q222",
+    "sales": 52800,
+    "claw": 17650,
+    "count": 4,
+    "cost_rate": 0.36770833333333336
+  },
+  {
+    "symbol": "113C3B3A2B222",
+    "sales": 16600,
+    "claw": 7800,
+    "count": 1,
+    "cost_rate": 0.516867469879518
+  },
+  {
+    "symbol": "113C3B3B2B222",
+    "sales": 33000,
+    "claw": 3450,
+    "count": 2,
+    "cost_rate": 0.11500000000000002
+  },
+  {
+    "symbol": "113A3B3B2B222",
+    "sales": 12900,
+    "claw": 8775,
+    "count": 1,
+    "cost_rate": 0.7482558139534884
+  },
+  {
+    "symbol": "113A3I3B2B222",
+    "sales": 12700,
+    "claw": 2128,
+    "count": 1,
+    "cost_rate": 0.18431496062992128
+  },
+  {
+    "symbol": "113A2D3B2B222",
+    "sales": 37100,
+    "claw": 10800,
+    "count": 1,
+    "cost_rate": 0.32021563342318066
+  },
+  {
+    "symbol": "113A2D3B2A222",
+    "sales": 34000,
+    "claw": 15915,
+    "count": 2,
+    "cost_rate": 0.5148970588235294
+  },
+  {
+    "symbol": "113A3J3B2B222",
+    "sales": 23800,
+    "claw": 6154,
+    "count": 3,
+    "cost_rate": 0.2844285714285715
+  },
+  {
+    "symbol": "113A2D3E1E222",
+    "sales": 34300,
+    "claw": 8000,
+    "count": 2,
+    "cost_rate": 0.2565597667638484
+  },
+  {
+    "symbol": "113A2D3E2A221",
+    "sales": 7300,
+    "claw": 5250,
+    "count": 1,
+    "cost_rate": 0.7910958904109591
+  },
+  {
+    "symbol": "113B3B3B2B222",
+    "sales": 11600,
+    "claw": 600,
+    "count": 2,
+    "cost_rate": 0.056896551724137934
+  },
+  {
+    "symbol": "113A2D3E1J221",
+    "sales": 8400,
+    "claw": 3300,
+    "count": 1,
+    "cost_rate": 0.4321428571428572
+  },
+  {
+    "symbol": "113A2D3E1J211",
+    "sales": 9000,
+    "claw": 990,
+    "count": 1,
+    "cost_rate": 0.121
+  },
+  {
+    "symbol": "113A3J3B2A222",
+    "sales": 18200,
+    "claw": 3516,
+    "count": 1,
+    "cost_rate": 0.21250549450549452
+  },
+  {
+    "symbol": "113C2D3E2A222",
+    "sales": 11100,
+    "claw": 1980,
+    "count": 1,
+    "cost_rate": 0.1962162162162162
+  },
+  {
+    "symbol": "113C2D3B2B222",
+    "sales": 4400,
+    "claw": 960,
+    "count": 1,
+    "cost_rate": 0.24
+  },
+  {
+    "symbol": "113A2D3E2B222",
+    "sales": 8400,
+    "claw": 1800,
+    "count": 1,
+    "cost_rate": 0.23571428571428574
+  },
+  {
+    "symbol": "113B3J3A2A222",
+    "sales": 8100,
+    "claw": 972,
+    "count": 1,
+    "cost_rate": 0.132
+  },
+  {
+    "symbol": "113C3J2A2B222",
+    "sales": 19200,
+    "claw": 3390,
+    "count": 2,
+    "cost_rate": 0.19421875000000002
+  },
+  {
+    "symbol": "113A3D3E2B222",
+    "sales": 11900,
+    "claw": 2800,
+    "count": 1,
+    "cost_rate": 0.25882352941176473
+  },
+  {
+    "symbol": "113B3F1B2B222",
+    "sales": 10800,
+    "claw": 2400,
+    "count": 1,
+    "cost_rate": 0.24444444444444444
+  },
+  {
+    "symbol": "113B2D2B1O122",
+    "sales": 10300,
+    "claw": 3280,
+    "count": 1,
+    "cost_rate": 0.3502912621359224
+  },
+  {
+    "symbol": "113B3E2B1O122",
+    "sales": 28800,
+    "claw": 6720,
+    "count": 1,
+    "cost_rate": 0.2566666666666667
+  },
+  {
+    "symbol": "113A2D3E1B222",
+    "sales": 15100,
+    "claw": 4500,
+    "count": 2,
+    "cost_rate": 0.32781456953642385
+  },
+  {
+    "symbol": "113A3J3E1E222",
+    "sales": 7700,
+    "claw": 7360,
+    "count": 1,
+    "cost_rate": 1.0514285714285716
+  },
+  {
+    "symbol": "113B2F2D1B222",
+    "sales": 8900,
+    "claw": 2250,
+    "count": 1,
+    "cost_rate": 0.27808988764044945
+  },
+  {
+    "symbol": "113A3D3E1B222",
+    "sales": 7400,
+    "claw": 2250,
+    "count": 1,
+    "cost_rate": 0.3344594594594595
+  },
+  {
+    "symbol": "113A1B3E1Q222",
+    "sales": 8200,
+    "claw": 3420,
+    "count": 1,
+    "cost_rate": 0.4587804878048781
+  },
+  {
+    "symbol": "113B1B2B1Q222",
+    "sales": 8500,
+    "claw": 3240,
+    "count": 1,
+    "cost_rate": 0.4192941176470589
+  },
+  {
+    "symbol": "113B3E2C1O222",
+    "sales": 8900,
+    "claw": 2400,
+    "count": 1,
+    "cost_rate": 0.2966292134831461
+  },
+  {
+    "symbol": "113C2D1B1C222",
+    "sales": 7000,
+    "claw": 2200,
+    "count": 1,
+    "cost_rate": 0.3457142857142857
+  },
+  {
+    "symbol": "#N/A",
+    "sales": 339600,
+    "claw": 107727,
+    "count": 13,
+    "cost_rate": 0.3489390459363958
+  }
 ]
