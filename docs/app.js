@@ -115,7 +115,9 @@ function visibleSymbolsByQuery() {
 
 function getMeaning(sym) {
   if (!RAW_MASTER) return "";
-  return RAW_MASTER[sym] ?? "";
+  // ここで「景品ジャンル」を見る（DBの「記号」は景品ジャンル記号という前提）
+  const m = RAW_MASTER["景品ジャンル"] || {};
+  return m[sym] ?? "";
 }
 
 /**
