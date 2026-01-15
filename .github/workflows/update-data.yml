@@ -1,0 +1,42 @@
+name: Update dashboard data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "5 * * * *"   # 毎時05分（UTC基準）
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Generate JSON
+        env:
+          SYMBOL_MASTER_CSV_URL: ${{ vars.SYMBOL_MASTER_CSV_URL }}
+          DB_CSV_URL: ${{ vars.DB_CSV_URL }}
+        run: |
+          npm run update
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "chore(data): update from CSV"
+          git push
