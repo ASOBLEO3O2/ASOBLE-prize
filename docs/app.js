@@ -1,9 +1,18 @@
 /******************************************************
- * DB Dashboard (drawer + flexible axis + sorting + rule filter)
- * データ入口は維持:
- *  - ./data/raw/rows.json
- *  - ./data/raw/summary.json
- *  - ./data/master/symbol_master.json
+ * DB Dashboard (app.js) - FULL REPLACE
+ *
+ * ✅ 目的
+ * - 左フィルタ「マシン（対応マシン名）」は「マスタH列（対応マシン名）」を参照して作る
+ * - 台数カウントも「対応マシン名（H列）」でユニーク計算
+ * - ドロワー式フィルタ
+ * - 中段KPIは「軸を切替」可能（景品ジャンル固定ではない）
+ * - 明細はソート（売上/消化/原価率/更新など）できる
+ * - 条件フィルタ（例：売上>1万 かつ 原価率<5%）が使える
+ *
+ * データ
+ * - ./data/raw/rows.json
+ * - ./data/raw/summary.json
+ * - ./data/master/symbol_master.json   ← ここから H列（対応マシン名）を引く
  ******************************************************/
 
 const fmtYen = (n) => n == null || !isFinite(n) ? "-" : new Intl.NumberFormat("ja-JP").format(Math.round(n)) + "円";
@@ -14,11 +23,13 @@ let RAW_SUMMARY = null;
 let RAW_ROWS = [];
 let RAW_MASTER = null;
 
-// UI state
+// ★ master lookup map (normalized boothId -> 対応マシン名)
+let MASTER_MACHINE_BY_BOOTH = new Map();
+
 const state = {
   // filters
-  machines: new Set(),          // 対応マシン名（ユニーク）
-  claw: "全体",                 // 投入法
+  machines: new Set(),   // 対応マシン名
+  claw: "全体",
   genre: "全て",
   chara: "全て",
   gender: "全て",
@@ -27,10 +38,10 @@ const state = {
   // numeric rule filter (row-level)
   minSales: null,
   maxSales: null,
-  minCostRate: null,            // 0-1
-  maxCostRate: null,            // 0-1
+  minCostRate: null,     // 0-1
+  maxCostRate: null,     // 0-1
 
-  // axis
+  // axis (mid KPI)
   axisKey: "景品ジャンル",
   axisSortKey: "sales",
   axisSortDir: "desc",
@@ -40,16 +51,7 @@ const state = {
   tableSortDir: "desc",
 };
 
-// axis candidates (存在するものだけUIに出す)
-const AXIS_CANDIDATES = [
-  "景品ジャンル",
-  "投入法",
-  "キャラ",
-  "性別",
-  "年代",
-  "更新日",
-];
-
+const AXIS_CANDIDATES = ["景品ジャンル", "投入法", "キャラ", "性別", "年代", "更新日"];
 const CLAW_OPTIONS = ["全体", "3本爪", "2本爪"];
 
 // --------------------------
@@ -61,52 +63,33 @@ async function loadAll() {
     fetch("./data/raw/summary.json").then(r => r.json()),
     fetch("./data/master/symbol_master.json").then(r => r.json()),
   ]);
+
   RAW_ROWS = Array.isArray(rows) ? rows : (rows?.rows || []);
   RAW_SUMMARY = summary || null;
   RAW_MASTER = master || null;
+
+  // ★ build master boothId -> machineName map (H列ベース)
+  MASTER_MACHINE_BY_BOOTH = buildMasterMachineMap(RAW_MASTER);
 
   initUI();
   hydrateFromSummary();
   renderAll();
 }
 
-// master lookup map (normalized boothId -> 対応マシン名)
-let MASTER_MACHINE_BY_BOOTH = new Map();
-
-function normalizeKey(s) {
-  if (s == null) return "";
-  return String(s)
-    .replace(/\u3000/g, " ")        // 全角スペース→半角
-    .trim()
-    .replace(/[（]/g, "(")         // 全角カッコ→半角
-    .replace(/[）]/g, ")")
-    .replace(/\s+/g, "")           // すべての空白を除去
-    .toLowerCase();
-}
-
-function detectField(obj, candidates) {
-  if (!obj) return null;
-  const keys = Object.keys(obj);
-  // 完全一致優先
-  for (const c of candidates) {
-    if (keys.includes(c)) return c;
-  }
-  // 部分一致（例：対応マシン名(H) みたいな列名にも対応）
-  for (const k of keys) {
-    for (const c of candidates) {
-      if (k.includes(c)) return k;
-    }
-  }
-  return null;
-}
-
 function hydrateFromSummary() {
-  const updated = RAW_SUMMARY?.updated_at || RAW_SUMMARY?.updatedAt || RAW_SUMMARY?.date || null;
-  document.getElementById("lastUpdated").textContent = "更新: " + (updated ? String(updated) : "-");
+  const updated =
+    RAW_SUMMARY?.updated_at ||
+    RAW_SUMMARY?.updatedAt ||
+    RAW_SUMMARY?.date ||
+    RAW_SUMMARY?.updated ||
+    null;
+
+  const el = document.getElementById("lastUpdated");
+  if (el) el.textContent = "更新: " + (updated ? String(updated) : "-");
 }
 
 // --------------------------
-// Helpers: normalize fields
+// Helpers
 // --------------------------
 function n(v) {
   const x = Number(v);
@@ -120,17 +103,61 @@ function pick(obj, keys) {
   return null;
 }
 
+function normalizeKey(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/\u3000/g, " ")   // 全角スペース→半角
+    .trim()
+    .replace(/[（]/g, "(")     // 全角カッコ→半角
+    .replace(/[）]/g, ")")
+    .replace(/\s+/g, "")       // 空白除去
+    .toLowerCase();
+}
+
+function detectField(obj, candidates) {
+  if (!obj) return null;
+  const keys = Object.keys(obj);
+  for (const c of candidates) if (keys.includes(c)) return c;
+  for (const k of keys) {
+    for (const c of candidates) {
+      if (k.includes(c)) return k;
+    }
+  }
+  return null;
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function uniqueValues(arr) {
+  const set = new Set();
+  for (const v of arr) {
+    const x = (v == null || v === "") ? "未分類" : String(v);
+    set.add(x);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
+}
+
+// --------------------------
+// Row Field Accessors (robust)
+// --------------------------
 function getSales(row) {
   return n(pick(row, ["総売上", "売上", "sales", "total_sales"]));
 }
 function getConsume(row) {
-  return n(pick(row, ["消化額", "consume", "消化金額", "cost"]));
+  return n(pick(row, ["消化額", "consume", "消化金額", "cost", "消化_額"]));
 }
 function getConsumeCount(row) {
-  return n(pick(row, ["消化数", "consume_count", "count"]));
+  return n(pick(row, ["消化数", "consume_count", "count", "消化_数"]));
 }
 function getUpdatedAt(row) {
-  const v = pick(row, ["更新日時", "updatedAt", "updated_at", "日付", "date"]);
+  const v = pick(row, ["更新日時", "updatedAt", "updated_at", "日付", "date", "更新日"]);
   return v == null ? "" : String(v);
 }
 function getPrizeName(row) {
@@ -152,57 +179,26 @@ function getAge(row) {
   return String(pick(row, ["年代", "age"]) || "未分類");
 }
 
-/**
- * 台数は「マスタH列（対応マシン名）」を基準にする
- * - rows側に対応マシン名が入っている場合はそれを使う
- * - master側に boothId -> 対応マシン名 辞書がある場合はそれを優先
- *
- * 期待する master の形（どれかに対応）:
- *  1) { byBoothId: { "ブースID": { "対応マシン名": "..." } } }
- *  2) { "ブースID": { "対応マシン名": "..." } }
- *  3) Array rows: [ { ブースID, 対応マシン名, ... }, ... ]
- */
 function getBoothId(row) {
   return String(pick(row, ["ブースID", "booth_id", "boothId", "machine_ref", "マシン名"]) || "");
 }
 
-function getMasterMachineNameByBoothId(boothId) {
-  if (!boothId) return null;
-  if (!RAW_MASTER) return null;
-
-  // 1) byBoothId
-  if (RAW_MASTER.byBoothId && RAW_MASTER.byBoothId[boothId]) {
-    const v = RAW_MASTER.byBoothId[boothId];
-    return pick(v, ["対応マシン名", "machine", "machine_name"]);
-  }
-
-  // 2) direct map
-  if (RAW_MASTER[boothId] && typeof RAW_MASTER[boothId] === "object") {
-    return pick(RAW_MASTER[boothId], ["対応マシン名", "machine", "machine_name"]);
-  }
-
-  // 3) array
-  if (Array.isArray(RAW_MASTER)) {
-    const hit = RAW_MASTER.find(r => String(pick(r, ["ブースID", "booth_id", "boothId"])) === boothId);
-    if (hit) return pick(hit, ["対応マシン名", "machine", "machine_name"]);
-  }
-
-  return null;
-}
-
+/**
+ * 対応マシン名（H列）を最優先で解決:
+ * 1) rows に 対応マシン名 が入っていればそれ
+ * 2) master辞書（ブースID -> 対応マシン名）で引く（H列）
+ * 3) fallback: boothId
+ */
 function getMachineName(row) {
-  // master H (対応マシン名) 優先
+  const directKey = detectField(row, ["対応マシン名", "対応マシン"]);
+  if (directKey && row[directKey]) return String(row[directKey]).trim();
+
   const boothId = getBoothId(row);
-  const fromMaster = getMasterMachineNameByBoothId(boothId);
-  if (fromMaster) return String(fromMaster);
+  const key = normalizeKey(boothId);
+  const fromMaster = MASTER_MACHINE_BY_BOOTH.get(key);
+  if (fromMaster) return fromMaster;
 
-  // rows側に入っている場合
-  const v = pick(row, ["対応マシン名", "machine", "machine_name"]);
-  if (v) return String(v);
-
-  // fallback: マシン名/ブースID
-  const fallback = pick(row, ["マシン名", "machine_ref", "ブースID", "booth_id"]);
-  return String(fallback || "");
+  return boothId || "未分類";
 }
 
 function calcCostRate(row) {
@@ -213,7 +209,58 @@ function calcCostRate(row) {
 }
 
 // --------------------------
-// UI Init
+// Build master map (H列ベース)
+// --------------------------
+function buildMasterMachineMap(master) {
+  const map = new Map();
+  if (!master) return map;
+
+  // master: array of rows
+  if (Array.isArray(master)) {
+    const sample = master[0] || {};
+    const boothKey = detectField(sample, ["ブースID", "booth_id", "boothId"]);
+    const machineKey = detectField(sample, ["対応マシン名", "対応マシン", "machine_name", "machine"]);
+
+    for (const r of master) {
+      const booth = boothKey ? r[boothKey] : null;
+      const machine = machineKey ? r[machineKey] : null;
+      const b = normalizeKey(booth);
+      const m = machine == null ? "" : String(machine).trim();
+      if (b && m) map.set(b, m);
+    }
+    return map;
+  }
+
+  // master: { byBoothId: { ... } }
+  if (master.byBoothId && typeof master.byBoothId === "object") {
+    for (const boothId of Object.keys(master.byBoothId)) {
+      const obj = master.byBoothId[boothId];
+      const machineKey = detectField(obj, ["対応マシン名", "対応マシン", "machine_name", "machine"]);
+      const m = machineKey ? obj[machineKey] : null;
+      const b = normalizeKey(boothId);
+      if (b && m) map.set(b, String(m).trim());
+    }
+    return map;
+  }
+
+  // master: { "ブースID": { ... } }
+  if (typeof master === "object") {
+    for (const boothId of Object.keys(master)) {
+      const obj = master[boothId];
+      if (!obj || typeof obj !== "object") continue;
+      const machineKey = detectField(obj, ["対応マシン名", "対応マシン", "machine_name", "machine"]);
+      const m = machineKey ? obj[machineKey] : null;
+      const b = normalizeKey(boothId);
+      if (b && m) map.set(b, String(m).trim());
+    }
+    return map;
+  }
+
+  return map;
+}
+
+// --------------------------
+// UI Init (Drawer + Filters)
 // --------------------------
 function initUI() {
   // Drawer open/close
@@ -223,18 +270,20 @@ function initUI() {
   const closeBtn = document.getElementById("closeDrawerBtn");
   const applyBtn = document.getElementById("applyFiltersBtn");
 
-  function openDrawer() {
-    drawer.classList.add("isOpen");
-    overlay.classList.add("isOpen");
-  }
-  function closeDrawer() {
-    drawer.classList.remove("isOpen");
-    overlay.classList.remove("isOpen");
-  }
-  openBtn.addEventListener("click", openDrawer);
-  closeBtn.addEventListener("click", closeDrawer);
-  overlay.addEventListener("click", closeDrawer);
-  applyBtn.addEventListener("click", () => {
+  const openDrawer = () => {
+    drawer?.classList.add("isOpen");
+    overlay?.classList.add("isOpen");
+  };
+  const closeDrawer = () => {
+    drawer?.classList.remove("isOpen");
+    overlay?.classList.remove("isOpen");
+  };
+
+  openBtn?.addEventListener("click", openDrawer);
+  closeBtn?.addEventListener("click", closeDrawer);
+  overlay?.addEventListener("click", closeDrawer);
+
+  applyBtn?.addEventListener("click", () => {
     closeDrawer();
     syncNumericInputsToState();
     renderAll();
@@ -242,27 +291,27 @@ function initUI() {
 
   // Axis select
   const axisSelect = document.getElementById("axisSelect");
-  axisSelect.innerHTML = "";
-  const availableAxis = getAvailableAxisKeys();
-  for (const k of availableAxis) {
-    const opt = document.createElement("option");
-    opt.value = k;
-    opt.textContent = k;
-    axisSelect.appendChild(opt);
+  if (axisSelect) {
+    axisSelect.innerHTML = "";
+    for (const k of AXIS_CANDIDATES) {
+      const opt = document.createElement("option");
+      opt.value = k;
+      opt.textContent = k;
+      axisSelect.appendChild(opt);
+    }
+    axisSelect.value = state.axisKey;
+    axisSelect.addEventListener("change", () => {
+      state.axisKey = axisSelect.value;
+      renderAll();
+    });
   }
-  state.axisKey = availableAxis.includes(state.axisKey) ? state.axisKey : availableAxis[0] || "景品ジャンル";
-  axisSelect.value = state.axisKey;
-  axisSelect.addEventListener("change", () => {
-    state.axisKey = axisSelect.value;
-    renderAll();
-  });
 
   // axis sort
   const axisSortKey = document.getElementById("axisSortKey");
   const axisSortDirBtn = document.getElementById("axisSortDirBtn");
-  axisSortKey.value = state.axisSortKey;
-  axisSortKey.addEventListener("change", () => { state.axisSortKey = axisSortKey.value; renderAll(); });
-  axisSortDirBtn.addEventListener("click", () => {
+  axisSortKey && (axisSortKey.value = state.axisSortKey);
+  axisSortKey?.addEventListener("change", () => { state.axisSortKey = axisSortKey.value; renderAll(); });
+  axisSortDirBtn?.addEventListener("click", () => {
     state.axisSortDir = state.axisSortDir === "desc" ? "asc" : "desc";
     axisSortDirBtn.textContent = state.axisSortDir === "desc" ? "降順" : "昇順";
     renderAll();
@@ -271,15 +320,15 @@ function initUI() {
   // table sort
   const tableSortKey = document.getElementById("tableSortKey");
   const tableSortDirBtn = document.getElementById("tableSortDirBtn");
-  tableSortKey.value = state.tableSortKey;
-  tableSortKey.addEventListener("change", () => { state.tableSortKey = tableSortKey.value; renderAll(); });
-  tableSortDirBtn.addEventListener("click", () => {
+  tableSortKey && (tableSortKey.value = state.tableSortKey);
+  tableSortKey?.addEventListener("change", () => { state.tableSortKey = tableSortKey.value; renderAll(); });
+  tableSortDirBtn?.addEventListener("click", () => {
     state.tableSortDir = state.tableSortDir === "desc" ? "asc" : "desc";
     tableSortDirBtn.textContent = state.tableSortDir === "desc" ? "降順" : "昇順";
     renderAll();
   });
 
-  // clickable headers (optional convenience)
+  // clickable headers
   document.querySelectorAll(".table thead th[data-sort]").forEach(th => {
     th.style.cursor = "pointer";
     th.addEventListener("click", () => {
@@ -291,79 +340,57 @@ function initUI() {
         state.tableSortKey = k;
         state.tableSortDir = "desc";
       }
-      tableSortKey.value = state.tableSortKey;
-      tableSortDirBtn.textContent = state.tableSortDir === "desc" ? "降順" : "昇順";
+      if (tableSortKey) tableSortKey.value = state.tableSortKey;
+      if (tableSortDirBtn) tableSortDirBtn.textContent = state.tableSortDir === "desc" ? "降順" : "昇順";
       renderAll();
     });
   });
 
-  // machine chips
+  // machine chips (H列対応マシン名を候補に)
   buildMachineChips();
-
-  // claw seg
-  buildClawSeg();
-
-  // selects (genre/chara/gender/age)
-  buildSelect("genreSelect", uniqueValues(RAW_ROWS.map(getGenre)), (v) => { state.genre = v; });
-  buildSelect("charaSelect", uniqueValues(RAW_ROWS.map(getChara)), (v) => { state.chara = v; });
-  buildSelect("genderSelect", uniqueValues(RAW_ROWS.map(getGender)), (v) => { state.gender = v; });
-  buildSelect("ageSelect", uniqueValues(RAW_ROWS.map(getAge)), (v) => { state.age = v; });
-
-  // numeric inputs
-  hookNumericInputs();
-
-  // presets
-  document.getElementById("presetHighSalesLowCost").addEventListener("click", () => {
-    document.getElementById("minSales").value = "10000";
-    document.getElementById("maxSales").value = "";
-    document.getElementById("minCostPct").value = "";
-    document.getElementById("maxCostPct").value = "5";
-  });
-  document.getElementById("presetResetNumeric").addEventListener("click", () => {
-    document.getElementById("minSales").value = "";
-    document.getElementById("maxSales").value = "";
-    document.getElementById("minCostPct").value = "";
-    document.getElementById("maxCostPct").value = "";
-  });
+  document.getElementById("machineSearch")?.addEventListener("input", () => buildMachineChips(true));
 
   // clear machines
-  document.getElementById("clearMachinesBtn").addEventListener("click", () => {
+  document.getElementById("clearMachinesBtn")?.addEventListener("click", () => {
     state.machines.clear();
     buildMachineChips(true);
     renderAll();
   });
 
-  // search in drawer
-  document.getElementById("machineSearch").addEventListener("input", () => {
-    buildMachineChips(true);
+  // claw seg
+  buildClawSeg();
+
+  // selects
+  buildSelect("genreSelect", uniqueValues(RAW_ROWS.map(getGenre)), (v) => { state.genre = v; });
+  buildSelect("charaSelect", uniqueValues(RAW_ROWS.map(getChara)), (v) => { state.chara = v; });
+  buildSelect("genderSelect", uniqueValues(RAW_ROWS.map(getGender)), (v) => { state.gender = v; });
+  buildSelect("ageSelect", uniqueValues(RAW_ROWS.map(getAge)), (v) => { state.age = v; });
+
+  // numeric inputs / presets
+  hookNumericInputs();
+  document.getElementById("presetHighSalesLowCost")?.addEventListener("click", () => {
+    setVal("minSales", "10000");
+    setVal("maxSales", "");
+    setVal("minCostPct", "");
+    setVal("maxCostPct", "5");
+  });
+  document.getElementById("presetResetNumeric")?.addEventListener("click", () => {
+    setVal("minSales", "");
+    setVal("maxSales", "");
+    setVal("minCostPct", "");
+    setVal("maxCostPct", "");
   });
 }
 
-function getAvailableAxisKeys() {
-  const keys = new Set();
-  for (const k of AXIS_CANDIDATES) {
-    // 1) known computed fields
-    if (k === "投入法") { keys.add(k); continue; }
-    if (k === "景品ジャンル") { keys.add(k); continue; }
-    if (k === "キャラ") { keys.add(k); continue; }
-    if (k === "性別") { keys.add(k); continue; }
-    if (k === "年代") { keys.add(k); continue; }
-    if (k === "更新日") { keys.add(k); continue; }
-  }
-  return Array.from(keys);
-}
-
-function uniqueValues(arr) {
-  const s = new Set();
-  for (const v of arr) {
-    const x = (v == null || v === "") ? "未分類" : String(v);
-    s.add(x);
-  }
-  return Array.from(s).sort((a,b)=>a.localeCompare(b,"ja"));
+function setVal(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.value = v;
 }
 
 function buildSelect(id, values, onChange) {
   const el = document.getElementById(id);
+  if (!el) return;
+
   const all = ["全て", ...values];
   el.innerHTML = "";
   for (const v of all) {
@@ -372,22 +399,17 @@ function buildSelect(id, values, onChange) {
     opt.textContent = v;
     el.appendChild(opt);
   }
-  // initial state
-  const map = {
-    genreSelect: "genre",
-    charaSelect: "chara",
-    genderSelect: "gender",
-    ageSelect: "age",
-  };
-  const key = map[id];
-  el.value = state[key] || "全て";
-  el.addEventListener("change", () => {
-    onChange(el.value);
-  });
+
+  const keyMap = { genreSelect: "genre", charaSelect: "chara", genderSelect: "gender", ageSelect: "age" };
+  const stateKey = keyMap[id];
+  el.value = state[stateKey] || "全て";
+  el.addEventListener("change", () => onChange(el.value));
 }
 
 function buildClawSeg() {
   const seg = document.getElementById("clawSeg");
+  if (!seg) return;
+
   seg.innerHTML = "";
   for (const v of CLAW_OPTIONS) {
     const b = document.createElement("button");
@@ -401,12 +423,23 @@ function buildClawSeg() {
   }
 }
 
-function buildMachineChips(rebuildOnly = false) {
+/**
+ * ★ machine chips are built from MASTER_MACHINE_BY_BOOTH.values()
+ *   -> This guarantees "対応マシン名" list (H列) only.
+ */
+function buildMachineChips() {
   const wrap = document.getElementById("machineChipGrid");
-  const q = (document.getElementById("machineSearch").value || "").trim().toLowerCase();
+  const q = (document.getElementById("machineSearch")?.value || "").trim().toLowerCase();
+  if (!wrap) return;
 
-  // master H (対応マシン名) を基準に、候補を作る
-  const allMachines = uniqueValues(RAW_ROWS.map(getMachineName)).filter(x => x && x !== "未分類");
+  let allMachines = Array.from(new Set(Array.from(MASTER_MACHINE_BY_BOOTH.values())))
+    .filter(x => x && x !== "未分類")
+    .sort((a, b) => a.localeCompare(b, "ja"));
+
+  // fallback if master empty
+  if (allMachines.length === 0) {
+    allMachines = uniqueValues(RAW_ROWS.map(getMachineName)).filter(x => x && x !== "未分類");
+  }
 
   const filtered = q ? allMachines.filter(m => m.toLowerCase().includes(q)) : allMachines;
 
@@ -427,7 +460,7 @@ function buildMachineChips(rebuildOnly = false) {
 function hookNumericInputs() {
   const ids = ["minSales", "maxSales", "minCostPct", "maxCostPct"];
   for (const id of ids) {
-    document.getElementById(id).addEventListener("keydown", (e) => {
+    document.getElementById(id)?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         syncNumericInputsToState();
         renderAll();
@@ -437,14 +470,13 @@ function hookNumericInputs() {
 }
 
 function syncNumericInputsToState() {
-  const minSales = parseFloat(document.getElementById("minSales").value);
-  const maxSales = parseFloat(document.getElementById("maxSales").value);
-  const minCostPct = parseFloat(document.getElementById("minCostPct").value);
-  const maxCostPct = parseFloat(document.getElementById("maxCostPct").value);
+  const minSales = parseFloat(document.getElementById("minSales")?.value);
+  const maxSales = parseFloat(document.getElementById("maxSales")?.value);
+  const minCostPct = parseFloat(document.getElementById("minCostPct")?.value);
+  const maxCostPct = parseFloat(document.getElementById("maxCostPct")?.value);
 
   state.minSales = isFinite(minSales) ? minSales : null;
   state.maxSales = isFinite(maxSales) ? maxSales : null;
-
   state.minCostRate = isFinite(minCostPct) ? (minCostPct / 100) : null;
   state.maxCostRate = isFinite(maxCostPct) ? (maxCostPct / 100) : null;
 }
@@ -453,17 +485,14 @@ function syncNumericInputsToState() {
 // Filtering + Aggregation
 // --------------------------
 function passesFilters(row) {
-  // machines (対応マシン名) - state.machines が空なら全て
   const machineName = getMachineName(row);
   if (state.machines.size > 0 && !state.machines.has(machineName)) return false;
 
-  // claw
   if (state.claw !== "全体") {
     const claw = getClaw(row);
     if (claw !== state.claw) return false;
   }
 
-  // category selects
   if (state.genre !== "全て" && getGenre(row) !== state.genre) return false;
   if (state.chara !== "全て" && getChara(row) !== state.chara) return false;
   if (state.gender !== "全て" && getGender(row) !== state.gender) return false;
@@ -490,17 +519,15 @@ function getAxisValue(row, axisKey) {
     case "性別": return getGender(row);
     case "年代": return getAge(row);
     case "更新日": return getUpdatedAt(row) || "-";
-    default:
-      return String(row[axisKey] ?? "未分類");
+    default: return String(row?.[axisKey] ?? "未分類");
   }
 }
 
-function uniqueMachineCountFromMasterH(rows) {
+function uniqueMachineCount(rows) {
   const set = new Set();
   for (const r of rows) {
     const m = getMachineName(r);
-    if (!m) continue;
-    if (m === "未分類") continue;
+    if (!m || m === "未分類") continue;
     set.add(m);
   }
   return set.size;
@@ -533,7 +560,7 @@ function groupByAxis(rows, axisKey) {
       sales: t.sales,
       consume: t.consume,
       costRate: t.costRate,
-      machines: uniqueMachineCountFromMasterH(list),
+      machines: uniqueMachineCount(list),
       rows: list,
     });
   }
@@ -543,8 +570,7 @@ function groupByAxis(rows, axisKey) {
 function sortAxisGroups(groups) {
   const dir = state.axisSortDir === "desc" ? -1 : 1;
   const key = state.axisSortKey;
-
-  return groups.sort((a,b) => {
+  return groups.sort((a, b) => {
     const av = a[key] ?? 0;
     const bv = b[key] ?? 0;
     if (av < bv) return -1 * dir;
@@ -563,17 +589,13 @@ function sortRows(rows) {
       case "consume": return getConsume(r);
       case "consumeCount": return getConsumeCount(r);
       case "costRate": return calcCostRate(r);
-      case "updatedAt": {
-        // 日付文字列をざっくり比較
-        const s = getUpdatedAt(r);
-        return s ? s : "";
-      }
-      case "machine": return getMachineName(r);
+      case "updatedAt": return getUpdatedAt(r) || "";
+      case "machine": return getMachineName(r) || "";
       default: return getSales(r);
     }
   }
 
-  return rows.sort((a,b) => {
+  return rows.sort((a, b) => {
     const av = val(a);
     const bv = val(b);
     if (typeof av === "string" || typeof bv === "string") {
@@ -599,14 +621,14 @@ function renderAll() {
 
 function renderActiveFilterChips(filteredRows) {
   const wrap = document.getElementById("activeFilterChips");
+  if (!wrap) return;
   wrap.innerHTML = "";
 
   const chips = [];
 
-  // machines summary
   if (state.machines.size > 0) {
     const list = Array.from(state.machines);
-    const label = list.length <= 3 ? list.join(" / ") : `${list[0]} ほか${list.length-1}`;
+    const label = list.length <= 3 ? list.join(" / ") : `${list[0]} ほか${list.length - 1}`;
     chips.push({ k: "マシン", v: label });
   } else {
     chips.push({ k: "マシン", v: "全体" });
@@ -619,13 +641,11 @@ function renderActiveFilterChips(filteredRows) {
   if (state.gender !== "全て") chips.push({ k: "性別", v: state.gender });
   if (state.age !== "全て") chips.push({ k: "年代", v: state.age });
 
-  // numeric
   if (state.minSales != null) chips.push({ k: "売上≥", v: fmtNum(state.minSales) });
   if (state.maxSales != null) chips.push({ k: "売上≤", v: fmtNum(state.maxSales) });
-  if (state.minCostRate != null) chips.push({ k: "原価率≥", v: (state.minCostRate*100).toFixed(0) + "%" });
-  if (state.maxCostRate != null) chips.push({ k: "原価率≤", v: (state.maxCostRate*100).toFixed(0) + "%" });
+  if (state.minCostRate != null) chips.push({ k: "原価率≥", v: (state.minCostRate * 100).toFixed(0) + "%" });
+  if (state.maxCostRate != null) chips.push({ k: "原価率≤", v: (state.maxCostRate * 100).toFixed(0) + "%" });
 
-  // right side meta chip (target count)
   chips.push({ k: "対象", v: `${filteredRows.length}行` });
 
   for (const c of chips) {
@@ -638,21 +658,28 @@ function renderActiveFilterChips(filteredRows) {
 
 function renderKPI(rows) {
   const t = totals(rows);
-  const machines = uniqueMachineCountFromMasterH(rows);
+  const machines = uniqueMachineCount(rows);
   const avg = machines ? (t.sales / machines) : 0;
 
-  document.getElementById("kpiSales").textContent = fmtYen(t.sales);
-  document.getElementById("kpiConsume").textContent = fmtYen(t.consume);
-  document.getElementById("kpiCostRate").textContent = fmtPct(t.costRate);
-  document.getElementById("kpiAvg").textContent = fmtYen(avg);
-  document.getElementById("kpiMachineCount").textContent = `台数: ${machines}`;
+  const kpiSales = document.getElementById("kpiSales");
+  const kpiConsume = document.getElementById("kpiConsume");
+  const kpiCostRate = document.getElementById("kpiCostRate");
+  const kpiAvg = document.getElementById("kpiAvg");
+  const kpiMachineCount = document.getElementById("kpiMachineCount");
+  const tableMeta = document.getElementById("tableMeta");
 
-  // table meta
-  document.getElementById("tableMeta").textContent = `対象: ${machines}台 / 投入法: ${state.claw}`;
+  kpiSales && (kpiSales.textContent = fmtYen(t.sales));
+  kpiConsume && (kpiConsume.textContent = fmtYen(t.consume));
+  kpiCostRate && (kpiCostRate.textContent = fmtPct(t.costRate));
+  kpiAvg && (kpiAvg.textContent = fmtYen(avg));
+  kpiMachineCount && (kpiMachineCount.textContent = `台数: ${machines}`);
+
+  tableMeta && (tableMeta.textContent = `対象: ${machines}台 / 投入法: ${state.claw}`);
 }
 
 function renderAxis(rows) {
   const wrap = document.getElementById("axisCards");
+  if (!wrap) return;
   wrap.innerHTML = "";
 
   const groups = sortAxisGroups(groupByAxis(rows, state.axisKey));
@@ -676,13 +703,13 @@ function renderAxis(rows) {
 
 function renderTable(rows) {
   const body = document.getElementById("tableBody");
+  if (!body) return;
   body.innerHTML = "";
 
   const list = sortRows([...rows]);
 
   for (const r of list) {
     const tr = document.createElement("tr");
-
     const machineName = getMachineName(r);
     const prize = getPrizeName(r);
     const sales = getSales(r);
@@ -705,18 +732,8 @@ function renderTable(rows) {
 }
 
 // --------------------------
-// util
+// Boot
 // --------------------------
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-// boot
 loadAll().catch(err => {
   console.error(err);
   alert("データの読み込みに失敗しました: " + err.message);
