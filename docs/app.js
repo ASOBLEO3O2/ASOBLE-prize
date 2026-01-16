@@ -123,9 +123,11 @@ function parseDate(v) {
 
   const s2 = s.replace(/\//g, "-");
   const d2 = new Date(s2);
-  return isNaN(d2.getTime()) ?ifi (!d2 || isNaN(d2.getTime())) return null;
-  return d2;
+  return isNaN(d2.getTime()) ? null : d2;
 }
+
+
+
 
 /** 日付のみ（YYYY/MM/DD） */
 function fmtDateOnly(v) {
