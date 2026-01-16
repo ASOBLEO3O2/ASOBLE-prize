@@ -10,6 +10,8 @@
  * - 料金・回数: plays が無い場合は 0 扱い（比率は総回数>0の時だけ有効）
  *******************************************************/
 
+export function buildCompositionKPI(rows, options) {
+  
 /** 数値の安全変換 */
 function toNum(v, def = 0) {
   const n = (typeof v === "number") ? v : Number(String(v ?? "").replace(/,/g, ""));
@@ -261,3 +263,4 @@ function exampleUsage(rows) {
 }
 
 // export { buildCompositionKPI, exampleUsage }; // Nodeで使うなら
+}
