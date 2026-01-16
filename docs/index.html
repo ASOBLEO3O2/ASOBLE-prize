@@ -13,7 +13,7 @@
       <div id="updated" class="updated">更新: -</div>
     </div>
 
-    <!-- 投入法セレクト（※必ず body 内に置く） -->
+    <!-- 投入法セレクト（※必ず body 内） -->
     <div class="topRight">
       <label class="muted" for="mode_claw">投入法</label>
       <select id="mode_claw">
@@ -38,7 +38,6 @@
     </div>
   </section>
 
-  <!-- 既存：記号別 売上ランキング -->
   <section class="panel">
     <div class="panelHead">
       <h2>記号別 売上ランキング</h2>
@@ -69,12 +68,13 @@
     </table>
   </section>
 
-  <!-- ★追加：③ 構成KPI（ここに描画される） -->
+  <!-- ★追加：③ 構成KPI（ここに描画） -->
   <section class="panel" id="composition"></section>
 
-  <!-- 既存JS（非module） -->
+  <!-- 既存：非module -->
   <script src="./app.js"></script>
-  <!-- ★追加：③描画ロジック（非module） -->
-  <script src="./composition_kpi.js"></script>
+
+  <!-- ★追加：③は module 側で描画（既存app.jsを壊さずに追加） -->
+  <script type="module" src="./js/main.js"></script>
 </body>
 </html>
