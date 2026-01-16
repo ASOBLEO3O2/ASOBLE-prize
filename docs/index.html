@@ -7,121 +7,187 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <header class="header">
-    <div class="headerLeft">
-      <div class="title">DB Dashboard</div>
-      <div id="updated" class="updated">更新: -</div>
+  <header class="topbar">
+    <div class="topbar__left">
+      <div class="title">
+        <div class="title__main">DB Dashboard</div>
+        <div class="title__sub" id="lastUpdated">更新: -</div>
+      </div>
+    </div>
+
+    <div class="topbar__center">
+      <div class="chiprow" id="activeFilterChips"></div>
+    </div>
+
+    <div class="topbar__right">
+      <button class="btn" id="openDrawerBtn">フィルタ</button>
+      <div class="axisBox">
+        <label class="axisBox__label">中段軸</label>
+        <select id="axisSelect" class="select"></select>
+      </div>
     </div>
   </header>
 
-  <div class="topLayout">
-    <!-- 左：フィルタ -->
-    <aside class="filters">
-      <!-- マシン -->
-      <section class="filterSection">
-        <div class="filterLabel">マシン（対応マシン名）</div>
-        <input id="q_machine" class="input" placeholder="例：UFO / ジェミニ / スウィート" />
-        <div id="chips_machine" class="chips"></div>
-        <button id="machine_clear" class="btn" type="button">マシン解除</button>
-      </section>
+  <!-- Drawer -->
+  <div class="drawerOverlay" id="drawerOverlay"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer__header">
+      <div class="drawer__title">フィルタ</div>
+      <button class="btn btn--ghost" id="closeDrawerBtn">閉じる</button>
+    </div>
 
-      <!-- 投入法 -->
-      <section class="filterSection">
-        <div class="filterLabel">投入法</div>
-        <select id="mode_claw" class="select">
-          <option value="all">全体</option>
-          <option value="3本爪">3本爪</option>
-          <option value="2本爪">2本爪</option>
-        </select>
-      </section>
+    <div class="drawer__section">
+      <div class="secTitle">マシン（対応マシン名）</div>
+      <input id="machineSearch" class="input" placeholder="例：UFO / ジェミニ / スウィート" />
+      <div class="chipgrid" id="machineChipGrid"></div>
+      <button class="btn btn--danger w100" id="clearMachinesBtn">マシン解除</button>
+    </div>
 
-      <!-- ジャンル（2段） -->
-      <section class="filterSection">
-        <div class="filterLabel">景品ジャンル</div>
-        <div id="chips_genre" class="chips"></div>
+    <div class="drawer__section">
+      <div class="secTitle">投入法</div>
+      <div class="seg" id="clawSeg"></div>
+    </div>
 
-        <div class="filterLabel mt10">子ジャンル</div>
-        <div id="chips_subgenre" class="chips"></div>
-
-        <button id="genre_clear" class="btn" type="button">ジャンル解除</button>
-      </section>
-
-      <!-- 性別（ターゲット） -->
-      <section class="filterSection">
-        <div class="filterLabel">性別（ターゲット）</div>
-        <div id="chips_target" class="chips"></div>
-        <button id="target_clear" class="btn" type="button">性別解除</button>
-      </section>
-
-      <!-- 年代 -->
-      <section class="filterSection">
-        <div class="filterLabel">年代</div>
-        <div id="chips_age" class="chips"></div>
-        <button id="age_clear" class="btn" type="button">年代解除</button>
-      </section>
-
-      <!-- 検索 -->
-      <section class="filterSection">
-        <div class="filterLabel">検索（景品名/マシン名）</div>
-        <input id="q" class="input" placeholder="例：ちいかわ / UFO9" />
-      </section>
-    </aside>
-
-    <!-- 右：メイン -->
-    <main class="mainArea">
-      <!-- KPI -->
-      <div class="kpiRow">
-        <div class="kpiCard">
-          <div class="kpiTitle">売上合計</div>
-          <div id="k_sales" class="kpiValue">-</div>
-          <div id="k_machines" class="kpiSub">台数: -</div>
+    <div class="drawer__section">
+      <div class="secTitle">カテゴリ（任意）</div>
+      <div class="grid2">
+        <div>
+          <label class="label">景品ジャンル</label>
+          <select id="genreSelect" class="select"></select>
         </div>
-
-        <div class="kpiCard">
-          <div class="kpiTitle">消化額合計</div>
-          <div id="k_claw" class="kpiValue">-</div>
+        <div>
+          <label class="label">キャラ</label>
+          <select id="charaSelect" class="select"></select>
         </div>
-
-        <div class="kpiCard">
-          <div class="kpiTitle">原価率</div>
-          <div id="k_rate" class="kpiValue">-</div>
+        <div>
+          <label class="label">性別</label>
+          <select id="genderSelect" class="select"></select>
         </div>
+        <div>
+          <label class="label">年代</label>
+          <select id="ageSelect" class="select"></select>
+        </div>
+      </div>
+    </div>
 
-        <div class="kpiCard">
-          <div class="kpiTitle">平均（1台あたり売上）</div>
-          <div id="k_avg" class="kpiValue">-</div>
+    <div class="drawer__section">
+      <div class="secTitle">条件フィルタ（数値）</div>
+      <div class="grid2">
+        <div>
+          <label class="label">売上 下限</label>
+          <input id="minSales" class="input" inputmode="numeric" placeholder="例：10000" />
+        </div>
+        <div>
+          <label class="label">売上 上限</label>
+          <input id="maxSales" class="input" inputmode="numeric" placeholder="例：200000" />
+        </div>
+        <div>
+          <label class="label">原価率 下限（%）</label>
+          <input id="minCostPct" class="input" inputmode="numeric" placeholder="例：5" />
+        </div>
+        <div>
+          <label class="label">原価率 上限（%）</label>
+          <input id="maxCostPct" class="input" inputmode="numeric" placeholder="例：40" />
         </div>
       </div>
 
-      <div class="subHeader">
-        <div class="subTitle">実データ（売上降順）</div>
-        <div id="k_filtered" class="subInfo">対象: -</div>
+      <div class="presetRow">
+        <button class="btn btn--ghost" id="presetHighSalesLowCost">売上>1万 かつ 原価率<5%</button>
+        <button class="btn btn--ghost" id="presetResetNumeric">条件リセット</button>
       </div>
 
-      <!-- ★ジャンル別サマリ（復活） -->
-      <div id="genre_summary" class="genreSummary"></div>
+      <div class="hint">
+        ※「原価率」は <b>消化額÷売上</b>（%）で計算。<br />
+        ※ 条件は <b>明細（行）</b> に適用しています。
+      </div>
+    </div>
 
-      <!-- テーブル -->
+    <div class="drawer__footer">
+      <button class="btn w100" id="applyFiltersBtn">反映</button>
+    </div>
+  </aside>
+
+  <main class="container">
+    <!-- KPI -->
+    <section class="kpiRow">
+      <div class="card">
+        <div class="card__label">売上合計</div>
+        <div class="card__value" id="kpiSales">-</div>
+        <div class="card__sub" id="kpiMachineCount">台数: -</div>
+      </div>
+      <div class="card">
+        <div class="card__label">消化額合計</div>
+        <div class="card__value" id="kpiConsume">-</div>
+      </div>
+      <div class="card">
+        <div class="card__label">原価率</div>
+        <div class="card__value" id="kpiCostRate">-</div>
+      </div>
+      <div class="card">
+        <div class="card__label">平均（1台あたり売上）</div>
+        <div class="card__value" id="kpiAvg">-</div>
+      </div>
+    </section>
+
+    <!-- Mid KPI (Axis) -->
+    <section class="midRow">
+      <div class="midHeader">
+        <div class="midTitle">実データ（軸別）</div>
+
+        <div class="midTools">
+          <label class="labelInline">並び替え</label>
+          <select id="axisSortKey" class="select">
+            <option value="sales">売上</option>
+            <option value="consume">消化額</option>
+            <option value="costRate">原価率</option>
+            <option value="machines">台数</option>
+          </select>
+          <button class="btn btn--ghost" id="axisSortDirBtn" title="昇順/降順">降順</button>
+        </div>
+      </div>
+
+      <div class="axisCards" id="axisCards"></div>
+    </section>
+
+    <!-- Table -->
+    <section class="tableCard">
+      <div class="tableHeader">
+        <div class="tableTitle">実データ（明細）</div>
+
+        <div class="tableTools">
+          <label class="labelInline">並び替え</label>
+          <select id="tableSortKey" class="select">
+            <option value="sales">総売上</option>
+            <option value="consumeCount">消化数</option>
+            <option value="consume">消化額</option>
+            <option value="costRate">原価率</option>
+            <option value="updatedAt">更新日時</option>
+          </select>
+          <button class="btn btn--ghost" id="tableSortDirBtn">降順</button>
+
+          <div class="tableMeta" id="tableMeta">対象: -</div>
+        </div>
+      </div>
+
       <div class="tableWrap">
-        <table id="tbl">
+        <table class="table">
           <thead>
             <tr>
-              <th>マシン名</th>
+              <th data-sort="machine">マシン名</th>
               <th>景品名</th>
-              <th class="num">総売上げ</th>
-              <th class="num">消化数</th>
-              <th class="num">消化額</th>
-              <th class="num">原価率</th>
-              <th>更新日時</th>
+              <th class="num" data-sort="sales">総売上</th>
+              <th class="num" data-sort="consumeCount">消化数</th>
+              <th class="num" data-sort="consume">消化額</th>
+              <th class="num" data-sort="costRate">原価率</th>
+              <th class="num" data-sort="updatedAt">更新日時</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody id="tableBody"></tbody>
         </table>
       </div>
-    </main>
-  </div>
+    </section>
+  </main>
 
-  <script type="module" src="./app.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
-
