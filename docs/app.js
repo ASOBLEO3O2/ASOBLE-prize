@@ -1,3 +1,19 @@
+/******************************************************
+ * app.js（A方式：実データ）
+ *  - ./data/raw/rows.json（ブースID=行＝マシン数）
+ *  - ./data/raw/summary.json
+ *  - ./data/master/symbol_master.json（辞書）
+ *
+ * 目的（今回の段階）
+ * 1) セレクトで「投入法」を 3本爪 / 2本爪 に切替
+ * 2) 切替に応じて “軸” を 3本爪 / 2本爪 に自動で切替（= 内訳が変わる）
+ * 3) チップ・テーブル・KPI が全部連動
+ *
+ * 前提（HTML側）
+ *  - 既存：#btn_all, #btn_none, #q, #symbol_box, #tbl, #updated, #k_sales, #k_claw, #k_rate, #k_filtered
+ *  - 追加：投入法セレクト #mode_claw （value="3本爪" / "2本爪"）
+ ******************************************************/
+
 const fmtYen = (n) => n == null ? "-" : new Intl.NumberFormat("ja-JP").format(Math.round(n)) + "円";
 const fmtPct = (v) => v == null ? "-" : (v * 100).toFixed(1) + "%";
 
@@ -5,20 +21,23 @@ let RAW_SUMMARY = null;     // ./data/raw/summary.json
 let RAW_ROWS = [];          // ./data/raw/rows.json（279行）
 let RAW_MASTER = null;      // ./data/master/symbol_master.json（辞書）
 
-// いまの「軸」：チップの対象（= group by のキー）
-// まずは「景品ジャンル」から始め、後でUIで切替を追加していく
-let axisKey = "景品ジャンル";  // 例: "3本爪", "投入法", "キャラ", "年代" など
+// 投入法（まずここでフィルタ）
+let clawMode = "3本爪";     // "3本爪" | "2本爪"
 
-let selected = new Set();   // 選択中の軸値（= チップで選ぶ）
+// 軸（group by のキー）…今回は clawMode に連動して「3本爪」「2本爪」を切替
+let axisKey = "3本爪";      // "3本爪" | "2本爪"
+
+// チップの選択（軸の値）
+let selected = new Set();   // 例：["単品", "複数", "山積み"] or ["ブリッジ", ...]
 let sortKey = "sales";
 let sortDir = "desc";       // "asc" | "desc"
 
 async function main() {
-  // ★ A方式：rows.json と raw/summary.json を読む
+  // A方式：raw を読む
   RAW_SUMMARY = await fetchJson("./data/raw/summary.json");
   RAW_ROWS = await fetchJson("./data/raw/rows.json");
 
-  // symbol_master は無くても動く（後で入る前提）
+  // symbol_master は無くても動く
   try {
     RAW_MASTER = await fetchJson("./data/master/symbol_master.json");
   } catch (e) {
@@ -26,31 +45,54 @@ async function main() {
     RAW_MASTER = null;
   }
 
+  // 初期：セレクトと axisKey を同期（HTMLに #mode_claw があるならその値優先）
+  const sel = document.querySelector("#mode_claw");
+  if (sel && sel.value) {
+    clawMode = sel.value;
+  }
+  axisKey = (clawMode === "2本爪") ? "2本爪" : "3本爪";
+
   // 初期：軸の全値を全選択
-  const byAxis = buildAggByAxis(axisKey, RAW_ROWS);
+  const byAxis = getAggForCurrentAxis();
   selected = new Set(byAxis.map(r => r.axis ?? "(未設定)"));
 
-  renderSymbolChips(); // チップ生成
+  renderSymbolChips();
   wireEvents();
-  render();            // 初回描画
+  render();
 }
 
 function wireEvents() {
+  // 全選択
   document.querySelector("#btn_all")?.addEventListener("click", () => {
     selected = new Set(visibleAxisValuesByQuery());
     render();
     syncChipsChecked();
   });
 
+  // 全解除
   document.querySelector("#btn_none")?.addEventListener("click", () => {
     selected = new Set();
     render();
     syncChipsChecked();
   });
 
+  // 検索（チップだけ再描画）
   document.querySelector("#q")?.addEventListener("input", () => {
-    // 検索はチップの表示だけ更新
     renderSymbolChips();
+  });
+
+  // 投入法セレクト：3本爪/2本爪 切替（ここが今回の肝）
+  document.querySelector("#mode_claw")?.addEventListener("change", (e) => {
+    clawMode = e.target.value; // "3本爪" / "2本爪"
+    axisKey = (clawMode === "2本爪") ? "2本爪" : "3本爪";
+
+    // 対象データが変わるので「全選択」に作り直し
+    const byAxis = getAggForCurrentAxis();
+    selected = new Set(byAxis.map(r => r.axis ?? "(未設定)"));
+
+    // 検索欄は維持（必要ならここでクリアしてもOK）
+    renderSymbolChips();
+    render();
   });
 
   // ソート（thクリック）
@@ -61,6 +103,7 @@ function wireEvents() {
         sortDir = (sortDir === "desc") ? "asc" : "desc";
       } else {
         sortKey = key;
+        // 文字列の列は asc 初期、数値列は desc 初期
         sortDir = (key === "symbol") ? "asc" : "desc";
       }
       render();
@@ -69,8 +112,40 @@ function wireEvents() {
 }
 
 /**
- * いまのUIは「記号チップ」前提だったので、
- * A方式では「軸の値（例：景品ジャンル=食品）」をチップ化する。
+ * rows.json の値が「記号」だった場合に、マスタ辞書で「意味」に寄せる
+ * 例：RAW_MASTER["投入法"]["2"] = "2本爪" など
+ */
+function normalizeByMaster(category, v) {
+  if (v == null) return "";
+  const raw = String(v).trim();
+  if (!RAW_MASTER) return raw;
+  const dict = RAW_MASTER[category];
+  if (!dict) return raw;
+  return dict[raw] ?? raw;
+}
+
+/**
+ * 投入法（3本爪/2本爪）で rows を絞る
+ * rows の列名は「投入法」を想定
+ */
+function getRowsForClawMode() {
+  return RAW_ROWS.filter(r => {
+    // まず rows の値を「意味」に寄せる（記号でも日本語でもOK）
+    const pm = normalizeByMaster("投入法", r?.["投入法"]);
+    return pm === clawMode;
+  });
+}
+
+/**
+ * 今の状態（clawMode/axisKey）で “軸別集計” を返す
+ */
+function getAggForCurrentAxis() {
+  const rows = getRowsForClawMode();
+  return buildAggByAxis(axisKey, rows);
+}
+
+/**
+ * チップ描画：軸の値をチップ化する
  */
 function renderSymbolChips() {
   const box = document.querySelector("#symbol_box");
@@ -79,8 +154,7 @@ function renderSymbolChips() {
 
   const q = (document.querySelector("#q")?.value || "").trim().toLowerCase();
 
-  // rows から軸別集計（チップの売上サブ表示に使う）
-  const byAxis = buildAggByAxis(axisKey, RAW_ROWS);
+  const byAxis = getAggForCurrentAxis();
 
   const rows = byAxis
     .filter(r => {
@@ -123,24 +197,23 @@ function syncChipsChecked() {
 
 function visibleAxisValuesByQuery() {
   const q = (document.querySelector("#q")?.value || "").trim().toLowerCase();
-  const byAxis = buildAggByAxis(axisKey, RAW_ROWS);
+  const byAxis = getAggForCurrentAxis();
   return byAxis
     .map(r => (r.axis ?? "(未設定)"))
     .filter(v => !q || String(v).toLowerCase().includes(q));
 }
 
 /**
- * 「意味」列：現状は景品ジャンル軸だけ意味を出す想定
- * （RAW_MASTERの構造がカテゴリ別辞書になっている前提）
- *
- * 例：axisKey="景品ジャンル" のとき、axis値がコードなら意味に変換できる。
- * ただし A方式では axis値自体が「食品」など人間語になってることが多いので、
- * 変換できなければそのまま空でOK。
+ * 「意味」列を出したい場合の変換
+ * - 今回の軸は axisKey = "3本爪" or "2本爪"
+ * - RAW_MASTER[axisKey][コード] = 意味 の形なら変換できる
+ * - axis値がすでに日本語（意味）なら、変換できなくても空でOK
  */
 function getMeaningByAxisValue(axisKey, v) {
   if (!RAW_MASTER) return "";
   const dict = RAW_MASTER[axisKey] || {};
-  return dict[v] ?? "";
+  // v がコードなら意味が出る。v が意味そのものならヒットしない→空
+  return dict[String(v).trim()] ?? "";
 }
 
 /**
@@ -148,6 +221,7 @@ function getMeaningByAxisValue(axisKey, v) {
  * - 0%: 青
  * - 32%以上: 赤
  * - 25〜31%: 白グラデーション
+ * rate は 0.308 のような割合
  */
 function rateStyleBySpec(rate) {
   if (rate == null || !Number.isFinite(Number(rate))) return "";
@@ -223,66 +297,79 @@ function rateStyleBySpec(rate) {
 }
 
 /**
- * ★A方式の核：rows → 軸別集計（RAW_BY_SYMBOL相当）を作る
- * 出力の形は、既存UIに合わせて：
- * { axis, sales, claw, cost_rate, count }
+ * rows → 軸別集計を作る
+ * 出力：{ axis, sales, claw, cost_rate, count }
+ *
+ * count は「行数」=「ブースID=マシン数」(あなた指定)
+ *
+ * rows.json の想定カラム：
+ *  - r.sales
+ *  - r.claw
+ *  - r[axisKey]（今回：r["3本爪"] または r["2本爪"]）
+ *
+ * ★もし rows.json 側のキーが別名なら、ここだけ合わせればOK
  */
 function buildAggByAxis(axisKey, rows) {
   const map = new Map();
 
   for (const r of rows) {
-    // rows.json の構造は build_data.mjs が作ったもの
-    // 例: r["景品ジャンル"] / r["3本爪"] / r["投入法"] ... が入っている想定
-    const axisVal = (r?.[axisKey] ?? "").trim() || "(未設定)";
+    const axisVal = (r?.[axisKey] ?? "").toString().trim() || "(未設定)";
 
     const cur = map.get(axisVal) || { axis: axisVal, sales: 0, claw: 0, count: 0 };
     cur.sales += num(r.sales);
     cur.claw += num(r.claw);
-    cur.count += 1; // ★ST数＝行数（ブースID＝マシン数）
+    cur.count += 1;
     map.set(axisVal, cur);
   }
 
-  const arr = Array.from(map.values()).map(o => {
+  return Array.from(map.values()).map(o => {
     const cost_rate = o.sales ? (o.claw * 1.1) / o.sales : null;
     return { ...o, cost_rate };
   });
-
-  return arr;
 }
 
 function render() {
-  // 更新日時（raw summary）
-  document.querySelector("#updated").textContent =
-    "更新: " + new Date(RAW_SUMMARY.updated_at).toLocaleString("ja-JP");
+  // 更新日時
+  const updated = document.querySelector("#updated");
+  if (updated && RAW_SUMMARY?.updated_at) {
+    updated.textContent = "更新: " + new Date(RAW_SUMMARY.updated_at).toLocaleString("ja-JP");
+  }
 
-  // まず軸別集計を作る
-  const byAxis = buildAggByAxis(axisKey, RAW_ROWS);
+  // 軸別集計（投入法で絞った上で）
+  const byAxis = getAggForCurrentAxis();
 
-  // チップ選択でフィルタ（＝軸値の絞り込み）
+  // チップ選択でフィルタ
   const filteredAgg = byAxis.filter(r => selected.has(r.axis ?? "(未設定)"));
 
-  // KPI：選択中の合計（フィルタ後の合計）
+  // KPI（フィルタ後合計）
   const totalSales = filteredAgg.reduce((a, r) => a + num(r.sales), 0);
   const totalClaw  = filteredAgg.reduce((a, r) => a + num(r.claw), 0);
   const costRate   = totalSales ? (totalClaw * 1.1) / totalSales : null;
 
-  document.querySelector("#k_sales").textContent = fmtYen(totalSales);
-  document.querySelector("#k_claw").textContent  = fmtYen(totalClaw);
+  const kSales = document.querySelector("#k_sales");
+  const kClaw  = document.querySelector("#k_claw");
+  const kRate  = document.querySelector("#k_rate");
+  const kFilt  = document.querySelector("#k_filtered");
 
-  const kRate = document.querySelector("#k_rate");
-  kRate.textContent = fmtPct(costRate);
-  kRate.setAttribute("style", rateStyleBySpec(costRate));
+  if (kSales) kSales.textContent = fmtYen(totalSales);
+  if (kClaw)  kClaw.textContent  = fmtYen(totalClaw);
 
-  // フィルタ状況（選択中カテゴリ数/全カテゴリ数）
-  document.querySelector("#k_filtered").textContent =
-    `選択中: ${selected.size}/${byAxis.length} ${escapeHtml(axisKey)}`;
+  if (kRate) {
+    kRate.textContent = fmtPct(costRate);
+    kRate.setAttribute("style", rateStyleBySpec(costRate));
+  }
 
-  // ソート（既存のsortKeyは sales/claw/cost_rate/count を想定）
+  if (kFilt) {
+    // 例：選択中: 2/3 3本爪（3本爪の内訳カテゴリ数）
+    kFilt.textContent = `選択中: ${selected.size}/${byAxis.length} ${axisKey}（投入法=${clawMode}）`;
+  }
+
+  // ソート
   const sorted = filteredAgg.slice().sort((a, b) => cmpAgg(a, b, sortKey, sortDir));
 
   // テーブル描画
   const tb = document.querySelector("#tbl tbody");
-  tb.innerHTML = "";
+  if (tb) tb.innerHTML = "";
 
   sorted.forEach(r => {
     const axisVal = r.axis ?? "(未設定)";
@@ -297,17 +384,16 @@ function render() {
       <td><span style="${rateStyleBySpec(r.cost_rate)}">${fmtPct(r.cost_rate)}</span></td>
       <td>${r.count ?? ""}</td>
     `;
-    tb.appendChild(tr);
+    tb?.appendChild(tr);
   });
 
-  // 検索でチップが再生成されてる場合があるので、同期
   syncChipsChecked();
 }
 
 function cmpAgg(a, b, key, dir) {
   const s = (dir === "desc") ? -1 : 1;
 
-  // 既存UIの th[data-sort="symbol"] を「軸の文字列」に読み替える
+  // th[data-sort="symbol"] を「軸の文字列」に読み替え
   if (key === "symbol") {
     return s * String(a.axis ?? "").localeCompare(String(b.axis ?? ""), "ja");
   }
