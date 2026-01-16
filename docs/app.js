@@ -67,6 +67,7 @@ function parseDate(v) {
   const s = String(v).trim();
   const d = new Date(s);
   if (!isNaN(d.getTime())) return d;
+
   // "YYYY/MM/DD HH:mm:ss" などを想定（Dateが解釈できない場合は軽く置換）
   const s2 = s.replace(/\//g, "-");
   const d2 = new Date(s2);
@@ -74,8 +75,13 @@ function parseDate(v) {
 }
 
 function fmtDate(v) {
-  const d = v instanceof Date ? v : parseDate(v);
-  if (!d) return normalizeStr(v) || "-";
+  const raw = normalizeStr(v);
+
+  // Google Sheets のエラーが混ざるケース吸収
+  if (!raw || raw === "#N/A" || raw === "N/A" || raw === "#REF!") return "-";
+
+  const d = v instanceof Date ? v : parseDate(raw);
+  if (!d) return raw || "-";
   return d.toLocaleString("ja-JP");
 }
 
@@ -119,8 +125,12 @@ function filterByQuery(rows) {
   if (!q) return rows;
 
   return rows.filter(r => {
-    const machine = normalizeStr(pick(r, ["マシン名（ブースID）", "マシン名", "ブースID", "machine", "machine_name", "booth_id"])).toLowerCase();
-    const item = normalizeStr(pick(r, ["景品名", "最終景品", "最終景品名", "item_name", "prize_name"])).toLowerCase();
+    const machine = normalizeStr(
+      pick(r, ["マシン名（ブースID）", "マシン名", "ブースID", "machine", "machine_name", "booth_id"])
+    ).toLowerCase();
+    const item = normalizeStr(
+      pick(r, ["景品名", "最終景品", "最終景品名", "item_name", "prize_name"])
+    ).toLowerCase();
     return machine.includes(q) || item.includes(q);
   });
 }
@@ -133,11 +143,15 @@ function normalizeRow(r) {
   const item    = pick(r, ["景品名", "最終景品", "最終景品名", "item_name", "prize_name"]);
 
   const sales   = pick(r, ["総売り上げ", "総売上", "総売上げ", "売上", "sales"]);
-  const cnt     = pick(r, ["消化数", "消化回数", "count", "plays"]);
+
+  // ★ここが今回の肝：rows.json は consume_count
+  const cnt     = pick(r, ["consume_count", "消化数", "消化回数", "count", "plays"]);
+
   const claw    = pick(r, ["消化額", "claw"]);
   const rateRaw = pick(r, ["原価率", "cost_rate"]);
 
-  const updated = pick(r, ["更新日時", "updated_at", "updated"]);
+  // ★rows.json は updated_at
+  const updated = pick(r, ["updated_at", "更新日時", "updated"]);
 
   const salesN = num(sales);
   const clawN  = num(claw);
