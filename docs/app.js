@@ -32,6 +32,14 @@ let selected = new Set();   // 例：["単品", "複数", "山積み"] or ["ブ�
 let sortKey = "sales";
 let sortDir = "desc";       // "asc" | "desc"
 
+/* ★追加：外部通知（③側が更新タイミングを受け取る） */
+const __listeners = new Set();
+function __notify() {
+  for (const fn of __listeners) {
+    try { fn(); } catch (e) { console.warn(e); }
+  }
+}
+
 async function main() {
   // A方式：raw を読む
   RAW_SUMMARY = await fetchJson("./data/raw/summary.json");
@@ -60,14 +68,8 @@ async function main() {
   wireEvents();
   render();
 
-  // ★追加：③ 構成KPI をマウント（投入法フィルタ後の rows を渡す）
-  const compMount = document.querySelector("#composition");
-  if (compMount && window.CompositionKPI) {
-    window.__comp = window.CompositionKPI.mount({
-      mountEl: compMount,
-      getRows: () => getRowsForClawMode()
-    });
-  }
+  // ★追加：初回ロード完了を通知（③を初期描画させる）
+  __notify();
 }
 
 function wireEvents() {
@@ -103,8 +105,8 @@ function wireEvents() {
     renderSymbolChips();
     render();
 
-    // ★追加：③も更新
-    window.__comp?.refresh?.();
+    // ★追加：投入法が変わったので③も更新
+    __notify();
   });
 
   // ソート（thクリック）
@@ -372,7 +374,6 @@ function render() {
   }
 
   if (kFilt) {
-    // 例：選択中: 2/3 3本爪（3本爪の内訳カテゴリ数）
     kFilt.textContent = `選択中: ${selected.size}/${byAxis.length} ${axisKey}（投入法=${clawMode}）`;
   }
 
@@ -405,7 +406,6 @@ function render() {
 function cmpAgg(a, b, key, dir) {
   const s = (dir === "desc") ? -1 : 1;
 
-  // th[data-sort="symbol"] を「軸の文字列」に読み替え
   if (key === "symbol") {
     return s * String(a.axis ?? "").localeCompare(String(b.axis ?? ""), "ja");
   }
@@ -432,6 +432,16 @@ function escapeHtml(s) {
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
 }
+
+/* ★追加：module側（js/main.js）から参照する窓口を公開 */
+window.__APP__ = {
+  // ③は投入法で絞った rows を使う
+  getRowsForClawMode: () => getRowsForClawMode(),
+  // 状態参照（必要なら）
+  getClawMode: () => clawMode,
+  // 更新通知（投入法切替 / 初回ロード）
+  subscribe: (fn) => { __listeners.add(fn); return () => __listeners.delete(fn); }
+};
 
 main().catch(e => {
   console.error(e);
