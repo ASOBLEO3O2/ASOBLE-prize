@@ -59,6 +59,15 @@ async function main() {
   renderSymbolChips();
   wireEvents();
   render();
+
+  // ★追加：③ 構成KPI をマウント（投入法フィルタ後の rows を渡す）
+  const compMount = document.querySelector("#composition");
+  if (compMount && window.CompositionKPI) {
+    window.__comp = window.CompositionKPI.mount({
+      mountEl: compMount,
+      getRows: () => getRowsForClawMode()
+    });
+  }
 }
 
 function wireEvents() {
@@ -93,6 +102,9 @@ function wireEvents() {
     // 検索欄は維持（必要ならここでクリアしてもOK）
     renderSymbolChips();
     render();
+
+    // ★追加：③も更新
+    window.__comp?.refresh?.();
   });
 
   // ソート（thクリック）
