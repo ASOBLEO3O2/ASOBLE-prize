@@ -1,35 +1,34 @@
-name: Build data (rows.json)
+name: Build rows.json from Spreadsheet
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "15 * * * *"  # 毎時15分（不要なら消してOK）
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: 18
 
       - name: Build data
         run: node scripts/build_data.mjs
 
-      - name: Commit and push if changed
+      - name: Commit and push updated data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/data/raw/rows.json docs/data/raw/summary.json docs/data/master/symbol_master.json
           if git diff --cached --quiet; then
-            echo "No changes."
+            echo "No data changes"
           else
-            git commit -m "Update data: rows/summary/master"
+            git commit -m "Update rows.json (consume_count, updated_at)"
             git push
           fi
