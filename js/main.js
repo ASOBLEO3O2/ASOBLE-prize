@@ -1,14 +1,16 @@
 import { loadRows } from "./data/loadRows.js";
-import { buildCompositionKPI } from "./kpi/buildCompositionKPI.js";
+import { mountCompositionPanel } from "./ui/compositionPanel.js";
 
 async function init() {
   const rows = await loadRows();
 
-  const byGenre = buildCompositionKPI(rows, {
-    axisType: "genre"
-  });
+  const mountEl = document.getElementById("composition");
+  if (!mountEl) {
+    console.warn("[WARN] #composition が見つかりません。index.htmlに <div id='composition'></div> を追加してください。");
+    return;
+  }
 
-  console.log(byGenre); // ← まずここで確認
+  mountCompositionPanel({ rows, mountEl });
 }
 
 init();
