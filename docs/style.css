@@ -6,8 +6,6 @@
   --text:#e9eefc;
   --muted:rgba(233,238,252,.7);
   --muted2:rgba(233,238,252,.55);
-  --chip:#1b2740;
-  --chipOn:#2a3b62;
   --danger:#e25252;
   --shadow: 0 8px 30px rgba(0,0,0,.35);
   --r:14px;
@@ -58,7 +56,7 @@ body{
   font-size:12px;
   white-space:nowrap;
 }
-.chip b{font-weight:800}
+.chip b{font-weight:900}
 
 .topbar__right{
   display:flex;
@@ -105,6 +103,7 @@ body{
 .w100{width:100%}
 
 .container{padding:16px; max-width: 1280px; margin:0 auto}
+
 .kpiRow{
   display:grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -183,7 +182,8 @@ body{
   padding:12px 12px;
   border-bottom:1px solid var(--stroke);
   background: rgba(0,0,0,.15);
-  position:sticky; top:62px;
+  position:sticky;
+  top:62px;
 }
 .table thead th.num{text-align:right}
 .table tbody td{
@@ -199,14 +199,16 @@ body{
   border-radius:999px;
   background: rgba(255,255,255,.09);
   border:1px solid var(--stroke);
-  font-weight:800;
+  font-weight:900;
   font-size:12px;
 }
 
 .drawerOverlay{
-  position:fixed; inset:0;
+  position:fixed;
+  inset:0;
   background: rgba(0,0,0,.5);
-  opacity:0; pointer-events:none;
+  opacity:0;
+  pointer-events:none;
   transition:.15s ease;
   z-index:30;
 }
@@ -286,6 +288,7 @@ body{
   .topbar__right{justify-content:flex-start; flex-wrap:wrap}
   .axisCards{grid-template-columns: repeat(2, minmax(0, 1fr))}
   .kpiRow{grid-template-columns: repeat(2, minmax(0, 1fr))}
+  .table thead th{top: 126px;}
 }
 @media (max-width: 560px){
   .axisCards{grid-template-columns: 1fr}
