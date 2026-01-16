@@ -1,4 +1,3 @@
-// js/ui/compositionPanel.js
 import { buildCompositionKPI } from "../kpi/buildCompositionKPI.js";
 import { renderComposition } from "./renderComposition.js";
 
@@ -27,10 +26,10 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-export function mountCompositionPanel({ rows, mountEl }) {
+// rows は app.js 側で読み込んだものを使う（重複fetchしない）
+export function mountCompositionPanel({ getRows, subscribe, mountEl }) {
   mountEl.innerHTML = "";
 
-  // Controls
   const axisSel = el("select", { class: "ctl" });
   for (const a of AXES) axisSel.appendChild(el("option", { value: a.key }, [a.label]));
 
@@ -59,14 +58,14 @@ export function mountCompositionPanel({ rows, mountEl }) {
   mountEl.appendChild(body);
 
   function refresh() {
+    const rows = (typeof getRows === "function") ? getRows() : [];
     const axisType = axisSel.value;
+
     const opts = {
       axisType,
       includeUnknown: includeUnknownInput.checked,
     };
-    if (axisType === "flag") {
-      opts.flagKey = flagSel.value;
-    }
+    if (axisType === "flag") opts.flagKey = flagSel.value;
 
     const items = buildCompositionKPI(rows, opts);
     renderComposition(items, body);
@@ -79,6 +78,10 @@ export function mountCompositionPanel({ rows, mountEl }) {
   flagSel.addEventListener("change", refresh);
   includeUnknownInput.addEventListener("change", refresh);
 
-  // 初回
+  // app.js 側（投入法切替/初回ロード）から通知を受けたら更新
+  if (typeof subscribe === "function") {
+    subscribe(() => refresh());
+  }
+
   refresh();
 }
