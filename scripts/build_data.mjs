@@ -216,22 +216,26 @@ function buildRows(dbObjs, symbolMaster) {
     const costRate = sales ? (claw * 1.1) / sales : null; // ★あなた仕様
 
     return {
-      booth_id: r["ブースID"] ?? "",
-      item_name: r["景品名"] ?? "",
-      label_id: r["ラベルID"] ?? "",
-      machine: r["対応マシン名"] ?? "",
-      w: num(r["幅"]),
-      d: num(r["奥行き"]),
-      symbol_raw: symbol,
+  booth_id: r["ブースID"] ?? "",
+  item_name: r["景品名"] ?? "",
+  label_id: r["ラベルID"] ?? "",
+  machine: r["対応マシン名"] ?? "",
+  w: num(r["幅"]),
+  d: num(r["奥行き"]),
+  symbol_raw: symbol,
 
-      sales,
-      claw,
-      // 原価率（DB列があっても、ここでは仕様で再計算した値を正とする）
-      cost_rate: costRate,
+  // ★追加：消化数・更新日時（DB列）
+  consume_count: num(r["消化数"]),                 // ← 数値で出す
+  updated_at: (r["更新日時"] ?? "").trim(),        // ← 文字列でOK
 
-      // 解析結果（次元）
-      ...parsed,
-    };
+  sales,
+  claw,
+  // 原価率（仕様で再計算を正とする）
+  cost_rate: costRate,
+
+  ...parsed,
+};
+
   });
 
   return rows;
