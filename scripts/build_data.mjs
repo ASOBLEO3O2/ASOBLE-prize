@@ -7,7 +7,6 @@ const CSV_DB_URL =
 const CSV_SYMBOL_MASTER_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSYAO0VSIbTG2fa-9W2Jl1NuG9smC4BOfqNZWiwsb5IHEIYWgcUWgCe_SZTWBPrnFiodfIGdxvKe7Up/pub?gid=369838476&single=true&output=csv";
 
-// Pages配信が /docs なので、出力先は docs/data 配下
 import fs from "node:fs";
 import path from "node:path";
 
@@ -69,7 +68,6 @@ function parseCSV(csvText) {
     }
     cur += c;
   }
-  // last
   row.push(cur);
   rows.push(row);
   return rows;
@@ -87,7 +85,6 @@ function toObjects(rows) {
       if (!k) continue;
       o[k] = (r[j] ?? "").trim();
     }
-    // 空行っぽいのは捨てる
     const any = Object.values(o).some((v) => v !== "");
     if (any) objs.push(o);
   }
@@ -111,15 +108,29 @@ function pick(row, keys, fallback = "") {
   return fallback;
 }
 
+// 更新日時を「日付だけ」にする
+function toDateOnlyString(x) {
+  const s0 = (x ?? "").toString().trim();
+  if (!s0) return "";
+
+  const m = s0.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) {
+    const y = m[1];
+    const mm = String(m[2]).padStart(2, "0");
+    const dd = String(m[3]).padStart(2, "0");
+    return `${y}/${mm}/${dd}`;
+  }
+
+  const d = new Date(s0);
+  if (!Number.isFinite(d.getTime())) return "";
+  const y = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}/${mm}/${dd}`;
+}
+
 /**
  * 記号解析
- * 重要：あなたの説明より「記号は1行の文字列」「記号マスタで解析」
- *
- * ここでは “記号マスタ側の列名” を元に辞書を作り、
- * 記号文字列を “固定順序で先頭から順に” ロングマッチで読んでいく方式にします。
- *
- * もし実際の記号が「区切り文字あり」でも動くように
- * 先に区切りで token 化 → それでもダメなら逐次走査 の2段構えです。
  */
 const SYMBOL_SPEC = [
   { key: "料金", codeCol: "料金記号", valCol: "料金" },
@@ -142,8 +153,6 @@ const SYMBOL_SPEC = [
 ];
 
 function buildSymbolMaster(objs) {
-  // 1行に {料金記号: "1", 料金:"100円", 回数記号:"2", ...} みたいに入ってる想定
-  // → カテゴリ別に code->value の辞書にまとめる
   const master = {};
   for (const spec of SYMBOL_SPEC) master[spec.key] = {};
 
@@ -155,11 +164,10 @@ function buildSymbolMaster(objs) {
     }
   }
 
-  // ロングマッチ用のキー配列も作る
   const meta = {};
   for (const spec of SYMBOL_SPEC) {
     const keys = Object.keys(master[spec.key] || {});
-    keys.sort((a, b) => b.length - a.length); // 長い順
+    keys.sort((a, b) => b.length - a.length);
     meta[spec.key] = { keys };
   }
 
@@ -170,11 +178,8 @@ function parseSymbol(symbolStr, symbolMaster) {
   const s = (symbolStr ?? "").trim();
   const out = { raw: s };
 
-  // 1) 区切りがある場合は token で拾う（例: "1-A-3" 等）
   const tokens = s.split(/[^0-9A-Za-zぁ-んァ-ン一-龥]+/).filter(Boolean);
 
-  // token方式：各カテゴリで「一致する token が1つでもあれば採用」
-  // （複数一致したら先頭を採用。ここは必要なら変える）
   let tokenHit = 0;
   if (tokens.length >= 2) {
     for (const spec of SYMBOL_SPEC) {
@@ -186,10 +191,9 @@ function parseSymbol(symbolStr, symbolMaster) {
         tokenHit++;
       }
     }
-    if (tokenHit >= 2) return out; // それなりに取れたら確定
+    if (tokenHit >= 2) return out;
   }
 
-  // 2) 逐次走査（固定順序で先頭からロングマッチ）
   let i = 0;
   for (const spec of SYMBOL_SPEC) {
     const dict = symbolMaster.dict[spec.key] || {};
@@ -215,57 +219,56 @@ function parseSymbol(symbolStr, symbolMaster) {
 }
 
 function buildRows(dbObjs, symbolMaster) {
-  // DB側の列（あなたの提示）
-  // ブースID 景品名 総売上 消化数 消化額 原価率 ラベルID 対応マシン名 幅 奥行き 記号 更新日時
-  // ※列名ゆらぎがあるので pick() で吸収
-  const rows = dbObjs.map((r) => {
+  return dbObjs.map((r) => {
     const symbol = String(pick(r, ["記号", "symbol", "記号_raw", "記号ID"], "")).trim();
     const parsed = parseSymbol(symbol, symbolMaster);
 
     const sales = num(pick(r, ["総売上", "総売り上げ", "売上", "売上合計", "sales"], 0));
     const claw = num(pick(r, ["消化額", "消化金額", "原価", "claw"], 0));
-    const costRate = sales ? (claw * 1.1) / sales : null; // ★あなた仕様
+    const costRate = sales ? (claw * 1.1) / sales : null;
 
-    // ★消化数（列名ゆらぎを吸収）
     const consumeCount =
       num(pick(r, ["消化数", "消化回数", "消化", "回数", "プレイ回数", "plays", "count"], 0)) || 0;
 
-    // ★更新日時（列名ゆらぎを吸収）
-    const updatedAt = String(
-      pick(r, ["更新日時", "更新日", "updated_at", "updatedAt"], "")
-    ).trim();
+    const updatedRaw = String(pick(r, ["更新日時", "更新日", "updated_at", "updatedAt"], "")).trim();
+    const updatedDate = toDateOnlyString(updatedRaw);
 
-    // booth_id / machine / item_name も揺れ吸収（念のため）
-    const boothId = String(pick(r, ["ブースID", "マシン名（ブースID）", "booth_id"], "")).trim();
+    const boothId = String(pick(r, ["ブースID", "booth_id"], "")).trim();
     const itemName = String(pick(r, ["景品名", "item_name"], "")).trim();
     const labelId = String(pick(r, ["ラベルID", "label_id"], "")).trim();
-    const machine = String(pick(r, ["対応マシン名", "マシン名", "machine"], "")).trim();
+
+    // 表示用：01/左/右を含む「フル表記」
+    const machineName = String(
+      pick(r, ["ブースID", "マシン名（ブースID）", "マシン名", "machine_name"], "")
+    ).trim();
+
+    // 集計用キー：H列「対応マシン名」
+    const machineKey = String(
+      pick(r, ["対応マシン名", "対応マシン", "machine_key", "machine_ref"], "")
+    ).trim();
 
     return {
+      machine_name: machineName,
+      machine_key: machineKey,
+
       booth_id: boothId,
       item_name: itemName,
       label_id: labelId,
-      machine,
+
       w: num(pick(r, ["幅", "w"], 0)),
       d: num(pick(r, ["奥行き", "奥行", "d"], 0)),
-      symbol_raw: symbol,
 
-      // ★追加：消化数・更新日時
+      symbol_raw: symbol,
       consume_count: consumeCount,
-      updated_at: updatedAt,
+      updated_date: updatedDate,
 
       sales,
       claw,
-
-      // 原価率（DB列があっても、ここでは仕様で再計算した値を正とする）
       cost_rate: costRate,
 
-      // 解析結果（次元）
       ...parsed,
     };
   });
-
-  return rows;
 }
 
 function summary(rows) {
@@ -277,47 +280,4 @@ function summary(rows) {
     updated_at: new Date().toISOString(),
     row_count: rows.length,
     total_sales: totalSales,
-    total_claw: totalClaw,
-    cost_rate: costRate,
-  };
-}
-
-async function main() {
-  ensureDir(OUT_RAW);
-  ensureDir(OUT_MASTER);
-
-  const [dbCsv, masterCsv] = await Promise.all([
-    fetchText(CSV_DB_URL),
-    fetchText(CSV_SYMBOL_MASTER_URL),
-  ]);
-
-  const db = toObjects(parseCSV(dbCsv));
-  const sm = toObjects(parseCSV(masterCsv));
-
-  const symbolMaster = buildSymbolMaster(sm.objs);
-  const rows = buildRows(db.objs, symbolMaster);
-
-  fs.writeFileSync(
-    path.join(OUT_MASTER, "symbol_master.json"),
-    JSON.stringify(symbolMaster, null, 2),
-    "utf-8"
-  );
-
-  fs.writeFileSync(
-    path.join(OUT_RAW, "rows.json"),
-    JSON.stringify(rows, null, 2),
-    "utf-8"
-  );
-
-  fs.writeFileSync(
-    path.join(OUT_RAW, "summary.json"),
-    JSON.stringify(summary(rows), null, 2),
-    "utf-8"
-  );
-
-  console.log(`[OK] rows=${rows.length}`);
-}
-
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
+    total
