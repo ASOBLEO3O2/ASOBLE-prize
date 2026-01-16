@@ -280,4 +280,44 @@ function summary(rows) {
     updated_at: new Date().toISOString(),
     row_count: rows.length,
     total_sales: totalSales,
-    total
+    total_claw: totalClaw,
+    cost_rate: costRate,
+  };
+}
+
+async function main() {
+  ensureDir(OUT_RAW);
+  ensureDir(OUT_MASTER);
+
+  const [dbCsv, masterCsv] = await Promise.all([
+    fetchText(CSV_DB_URL),
+    fetchText(CSV_SYMBOL_MASTER_URL),
+  ]);
+
+  const db = toObjects(parseCSV(dbCsv));
+  const sm = toObjects(parseCSV(masterCsv));
+
+  const symbolMaster = buildSymbolMaster(sm.objs);
+  const rows = buildRows(db.objs, symbolMaster);
+
+  fs.writeFileSync(
+    path.join(OUT_MASTER, "symbol_master.json"),
+    JSON.stringify(symbolMaster, null, 2),
+    "utf-8"
+  );
+
+  fs.writeFileSync(path.join(OUT_RAW, "rows.json"), JSON.stringify(rows, null, 2), "utf-8");
+
+  fs.writeFileSync(
+    path.join(OUT_RAW, "summary.json"),
+    JSON.stringify(summary(rows), null, 2),
+    "utf-8"
+  );
+
+  console.log(`[OK] rows=${rows.length}`);
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
