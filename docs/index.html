@@ -4,88 +4,124 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>DB Dashboard</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header class="top">
-    <div class="top-left">
-      <h1>DB Dashboard</h1>
+  <header class="header">
+    <div class="headerLeft">
+      <div class="title">DB Dashboard</div>
       <div id="updated" class="updated">更新: -</div>
     </div>
+  </header>
 
-    <div class="top-right">
-      <div class="ctlWrap">
-        <div class="ctlLabel">投入法フィルタ</div>
-        <select id="mode_claw" class="ctl">
+  <div class="topLayout">
+    <!-- 左：フィルタ -->
+    <aside class="filters">
+      <!-- マシン -->
+      <section class="filterSection">
+        <div class="filterLabel">マシン（対応マシン名）</div>
+        <input id="q_machine" class="input" placeholder="例：UFO / ジェミニ / スウィート" />
+        <div id="chips_machine" class="chips"></div>
+        <button id="machine_clear" class="btn" type="button">マシン解除</button>
+      </section>
+
+      <!-- 投入法 -->
+      <section class="filterSection">
+        <div class="filterLabel">投入法</div>
+        <select id="mode_claw" class="select">
           <option value="all">全体</option>
           <option value="3本爪">3本爪</option>
           <option value="2本爪">2本爪</option>
         </select>
+      </section>
+
+      <!-- ジャンル（2段） -->
+      <section class="filterSection">
+        <div class="filterLabel">景品ジャンル</div>
+        <div id="chips_genre" class="chips"></div>
+
+        <div class="filterLabel mt10">子ジャンル</div>
+        <div id="chips_subgenre" class="chips"></div>
+
+        <button id="genre_clear" class="btn" type="button">ジャンル解除</button>
+      </section>
+
+      <!-- 性別（ターゲット） -->
+      <section class="filterSection">
+        <div class="filterLabel">性別（ターゲット）</div>
+        <div id="chips_target" class="chips"></div>
+        <button id="target_clear" class="btn" type="button">性別解除</button>
+      </section>
+
+      <!-- 年代 -->
+      <section class="filterSection">
+        <div class="filterLabel">年代</div>
+        <div id="chips_age" class="chips"></div>
+        <button id="age_clear" class="btn" type="button">年代解除</button>
+      </section>
+
+      <!-- 検索 -->
+      <section class="filterSection">
+        <div class="filterLabel">検索（景品名/マシン名）</div>
+        <input id="q" class="input" placeholder="例：ちいかわ / UFO9" />
+      </section>
+    </aside>
+
+    <!-- 右：メイン -->
+    <main class="mainArea">
+      <!-- KPI -->
+      <div class="kpiRow">
+        <div class="kpiCard">
+          <div class="kpiTitle">売上合計</div>
+          <div id="k_sales" class="kpiValue">-</div>
+          <div id="k_machines" class="kpiSub">台数: -</div>
+        </div>
+
+        <div class="kpiCard">
+          <div class="kpiTitle">消化額合計</div>
+          <div id="k_claw" class="kpiValue">-</div>
+        </div>
+
+        <div class="kpiCard">
+          <div class="kpiTitle">原価率</div>
+          <div id="k_rate" class="kpiValue">-</div>
+        </div>
+
+        <div class="kpiCard">
+          <div class="kpiTitle">平均（1台あたり売上）</div>
+          <div id="k_avg" class="kpiValue">-</div>
+        </div>
       </div>
 
-      <div class="ctlWrap">
-        <div class="ctlLabel">検索（景品名/マシン名）</div>
-        <input id="q" class="ctl" type="search" placeholder="例：ちいかわ / UFO9" />
+      <div class="subHeader">
+        <div class="subTitle">実データ（売上降順）</div>
+        <div id="k_filtered" class="subInfo">対象: -</div>
       </div>
-    </div>
-  </header>
 
-<!-- ジャンル（2段）フィルタ -->
-<div class="filterBox">
-  <div class="filterLabel">景品ジャンル</div>
-  <div id="chips_genre" class="chips"></div>
+      <!-- ★ジャンル別サマリ（復活） -->
+      <div id="genre_summary" class="genreSummary"></div>
 
-  <div class="filterLabel" style="margin-top:10px;">子ジャンル</div>
-  <div id="chips_subgenre" class="chips"></div>
-
-  <div class="filterActions">
-    <button id="genre_clear" type="button">ジャンル解除</button>
+      <!-- テーブル -->
+      <div class="tableWrap">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>マシン名</th>
+              <th>景品名</th>
+              <th class="num">総売上げ</th>
+              <th class="num">消化数</th>
+              <th class="num">消化額</th>
+              <th class="num">原価率</th>
+              <th>更新日時</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </main>
   </div>
-</div>
 
-  
-  <section class="kpi">
-    <div class="card">
-      <div class="label">売上合計</div>
-      <div id="k_sales" class="value">-</div>
-      <div id="k_machines" class="sub">台数: -</div>
-    </div>
-    <div class="card">
-      <div class="label">消化額合計</div>
-      <div id="k_claw" class="value">-</div>
-    </div>
-    <div class="card">
-      <div class="label">原価率</div>
-      <div id="k_rate" class="value">-</div>
-    </div>
-    <div class="card">
-      <div class="label">平均（1台あたり売上）</div>
-      <div id="k_avg" class="value">-</div>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="panelHead">
-      <h2>実データ（売上降順）</h2>
-      <div id="k_filtered" class="muted"></div>
-    </div>
-
-    <table id="tbl">
-      <thead>
-        <tr>
-          <th>マシン名（ブースID）</th>
-          <th>景品名</th>
-          <th class="num">総売り上げ</th>
-          <th class="num">消化数</th>
-          <th class="num">消化額</th>
-          <th class="num">原価率</th>
-          <th>更新日時</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </section>
-
-  <script src="./app.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
+
