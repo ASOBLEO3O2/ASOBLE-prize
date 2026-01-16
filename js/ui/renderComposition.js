@@ -1,5 +1,3 @@
-// js/ui/renderComposition.js
-
 const fmtYen = (n) =>
   n == null || !Number.isFinite(n) ? "-" :
   new Intl.NumberFormat("ja-JP").format(Math.round(n)) + "円";
@@ -12,7 +10,6 @@ function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
     if (k === "class") node.className = v;
-    else if (k === "html") node.innerHTML = v;
     else node.setAttribute(k, v);
   }
   for (const c of children) node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
@@ -32,15 +29,11 @@ function barRow(label, ratio, rightText) {
   return row;
 }
 
-/**
- * items: buildCompositionKPI() の戻り値
- * mountEl: 描画先要素
- */
 export function renderComposition(items, mountEl) {
   mountEl.innerHTML = "";
 
   if (!items || items.length === 0) {
-    mountEl.appendChild(el("div", { class: "empty" }, ["表示できるデータがありません（軸値が未設定/フィルタで除外など）"]));
+    mountEl.appendChild(el("div", { class: "empty" }, ["表示できるデータがありません"]));
     return;
   }
 
