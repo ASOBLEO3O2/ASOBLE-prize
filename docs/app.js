@@ -1,512 +1,693 @@
 /******************************************************
- * app.js（MVP：実データ一覧 + KPI + フィルタ）
- *
- * 入口：
+ * DB Dashboard (drawer + flexible axis + sorting + rule filter)
+ * データ入口は維持:
  *  - ./data/raw/rows.json
  *  - ./data/raw/summary.json
- *
- * 仕様（維持）
- *  - 表示マシン名：machine_name（01/左など含む）
- *  - 台数：machine_key（対応マシン名）ユニーク
- *  - 更新日：日付のみ（updated_date 優先、なければ updated_at）
- *  - 売上降順
- *
- * フィルタ（左縦積み）
- *  - マシン（machine_key）複数選択（OR）
- *  - 投入法（全体/3本爪/2本爪）
- *  - ジャンル2段：景品ジャンル → (食品/ぬい/雑貨ジャンル) 複数選択（OR）
- *  - 性別（ターゲット）複数選択（OR）
- *  - 年代 複数選択（OR）
- *  - 検索（景品名/マシン名）部分一致
- *
- * 追加表示
- *  - ジャンル別サマリ（景品ジャンル単位の売上/消化/原価率/台数）
+ *  - ./data/master/symbol_master.json
  ******************************************************/
 
-const fmtYen = (n) => (n == null ? "-" : new Intl.NumberFormat("ja-JP").format(Math.round(n)) + "円");
-const fmtNum = (n) => (n == null ? "-" : new Intl.NumberFormat("ja-JP").format(Math.round(n)));
-const fmtPct = (v) => (v == null ? "-" : (v * 100).toFixed(1) + "%");
+const fmtYen = (n) => n == null || !isFinite(n) ? "-" : new Intl.NumberFormat("ja-JP").format(Math.round(n)) + "円";
+const fmtNum = (n) => n == null || !isFinite(n) ? "-" : new Intl.NumberFormat("ja-JP").format(Math.round(n));
+const fmtPct = (v) => v == null || !isFinite(v) ? "-" : (v * 100).toFixed(1) + "%";
 
 let RAW_SUMMARY = null;
 let RAW_ROWS = [];
+let RAW_MASTER = null;
 
-// 投入法
-let clawMode = "all"; // "all" | "3本爪" | "2本爪"
+// UI state
+const state = {
+  // filters
+  machines: new Set(),          // 対応マシン名（ユニーク）
+  claw: "全体",                 // 投入法
+  genre: "全て",
+  chara: "全て",
+  gender: "全て",
+  age: "全て",
 
-// マシン（対応マシン名＝machine_key）
-let machineSelected = new Set();
-let machineQuery = "";
+  // numeric rule filter (row-level)
+  minSales: null,
+  maxSales: null,
+  minCostRate: null,            // 0-1
+  maxCostRate: null,            // 0-1
 
-// ジャンル2段
-let prizeGenre = "";              // 景品ジャンル（食品/ぬいぐるみ/雑貨）
-let subGenreSelected = new Set(); // 子ジャンル 複数
+  // axis
+  axisKey: "景品ジャンル",
+  axisSortKey: "sales",
+  axisSortDir: "desc",
 
-// 性別（ターゲット）
-let targetSelected = new Set();
+  // table sort
+  tableSortKey: "sales",
+  tableSortDir: "desc",
+};
 
-// 年代
-let ageSelected = new Set();
+// axis candidates (存在するものだけUIに出す)
+const AXIS_CANDIDATES = [
+  "景品ジャンル",
+  "投入法",
+  "キャラ",
+  "性別",
+  "年代",
+  "更新日",
+];
 
-async function main() {
-  RAW_SUMMARY = await fetchJson("./data/raw/summary.json");
-  RAW_ROWS = await fetchJson("./data/raw/rows.json");
+const CLAW_OPTIONS = ["全体", "3本爪", "2本爪"];
 
-  const sel = document.querySelector("#mode_claw");
-  if (sel && sel.value) clawMode = sel.value;
+// --------------------------
+// Load
+// --------------------------
+async function loadAll() {
+  const [rows, summary, master] = await Promise.all([
+    fetch("./data/raw/rows.json").then(r => r.json()),
+    fetch("./data/raw/summary.json").then(r => r.json()),
+    fetch("./data/master/symbol_master.json").then(r => r.json()),
+  ]);
+  RAW_ROWS = Array.isArray(rows) ? rows : (rows?.rows || []);
+  RAW_SUMMARY = summary || null;
+  RAW_MASTER = master || null;
 
-  wireEvents();
-  render();
+  initUI();
+  hydrateFromSummary();
+  renderAll();
 }
 
-function wireEvents() {
-  document.querySelector("#mode_claw")?.addEventListener("change", (e) => {
-    clawMode = e.target.value || "all";
-    render();
-  });
-
-  document.querySelector("#q")?.addEventListener("input", () => {
-    render();
-  });
-
-  document.querySelector("#q_machine")?.addEventListener("input", (e) => {
-    machineQuery = (e.target.value || "").toString();
-    render();
-  });
-
-  document.querySelector("#machine_clear")?.addEventListener("click", () => {
-    machineSelected = new Set();
-    machineQuery = "";
-    const qm = document.querySelector("#q_machine");
-    if (qm) qm.value = "";
-    render();
-  });
-
-  document.querySelector("#genre_clear")?.addEventListener("click", () => {
-    prizeGenre = "";
-    subGenreSelected = new Set();
-    render();
-  });
-
-  document.querySelector("#target_clear")?.addEventListener("click", () => {
-    targetSelected = new Set();
-    render();
-  });
-
-  document.querySelector("#age_clear")?.addEventListener("click", () => {
-    ageSelected = new Set();
-    render();
-  });
+function hydrateFromSummary() {
+  const updated = RAW_SUMMARY?.updated_at || RAW_SUMMARY?.updatedAt || RAW_SUMMARY?.date || null;
+  document.getElementById("lastUpdated").textContent = "更新: " + (updated ? String(updated) : "-");
 }
 
-/** rows.json の列名ゆらぎ吸収 */
-function pick(r, keys) {
+// --------------------------
+// Helpers: normalize fields
+// --------------------------
+function n(v) {
+  const x = Number(v);
+  return isFinite(x) ? x : 0;
+}
+
+function pick(obj, keys) {
   for (const k of keys) {
-    if (r != null && r[k] != null && String(r[k]).trim() !== "") return r[k];
+    if (obj && obj[k] != null && obj[k] !== "") return obj[k];
   }
   return null;
 }
 
-function normalizeStr(v) {
-  return String(v ?? "").trim();
+function getSales(row) {
+  return n(pick(row, ["総売上", "売上", "sales", "total_sales"]));
+}
+function getConsume(row) {
+  return n(pick(row, ["消化額", "consume", "消化金額", "cost"]));
+}
+function getConsumeCount(row) {
+  return n(pick(row, ["消化数", "consume_count", "count"]));
+}
+function getUpdatedAt(row) {
+  const v = pick(row, ["更新日時", "updatedAt", "updated_at", "日付", "date"]);
+  return v == null ? "" : String(v);
+}
+function getPrizeName(row) {
+  return String(pick(row, ["景品名", "item_name", "最終景品", "prize"]) || "");
+}
+function getClaw(row) {
+  return String(pick(row, ["投入法", "claw", "投入", "claw_type"]) || "全体");
+}
+function getGenre(row) {
+  return String(pick(row, ["景品ジャンル", "ジャンル", "genre"]) || "未分類");
+}
+function getChara(row) {
+  return String(pick(row, ["キャラ", "キャラ区分", "chara"]) || "未分類");
+}
+function getGender(row) {
+  return String(pick(row, ["性別", "gender"]) || "未分類");
+}
+function getAge(row) {
+  return String(pick(row, ["年代", "age"]) || "未分類");
 }
 
-function num(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+/**
+ * 台数は「マスタH列（対応マシン名）」を基準にする
+ * - rows側に対応マシン名が入っている場合はそれを使う
+ * - master側に boothId -> 対応マシン名 辞書がある場合はそれを優先
+ *
+ * 期待する master の形（どれかに対応）:
+ *  1) { byBoothId: { "ブースID": { "対応マシン名": "..." } } }
+ *  2) { "ブースID": { "対応マシン名": "..." } }
+ *  3) Array rows: [ { ブースID, 対応マシン名, ... }, ... ]
+ */
+function getBoothId(row) {
+  return String(pick(row, ["ブースID", "booth_id", "boothId", "machine_ref", "マシン名"]) || "");
 }
 
-function parseDate(v) {
-  if (!v) return null;
-  const s = String(v).trim();
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) return d;
+function getMasterMachineNameByBoothId(boothId) {
+  if (!boothId) return null;
+  if (!RAW_MASTER) return null;
 
-  const s2 = s.replace(/\//g, "-");
-  const d2 = new Date(s2);
-  return isNaN(d2.getTime()) ? null : d2;
-}
-
-
-
-
-/** 日付のみ（YYYY/MM/DD） */
-function fmtDateOnly(v) {
-  const raw = normalizeStr(v);
-  if (!raw || raw === "#N/A" || raw === "N/A" || raw === "#REF!") return "-";
-
-  const m = raw.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
-  if (m) {
-    const y = m[1];
-    const mo = String(m[2]).padStart(2, "0");
-    const da = String(m[3]).padStart(2, "0");
-    return `${y}/${mo}/${da}`;
+  // 1) byBoothId
+  if (RAW_MASTER.byBoothId && RAW_MASTER.byBoothId[boothId]) {
+    const v = RAW_MASTER.byBoothId[boothId];
+    return pick(v, ["対応マシン名", "machine", "machine_name"]);
   }
 
-  const d = v instanceof Date ? v : (parseDate(raw) ?? null);
-  if (!d) return raw || "-";
-  const y = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, "0");
-  const da = String(d.getDate()).padStart(2, "0");
-  return `${y}/${mo}/${da}`;
-}
-
-/** 原価率の見た目（既存仕様） */
-function rateBadgeStyle(rate) {
-  if (rate == null || !Number.isFinite(Number(rate))) {
-    return "background:rgba(255,255,255,.06); color:#e8eef6;";
+  // 2) direct map
+  if (RAW_MASTER[boothId] && typeof RAW_MASTER[boothId] === "object") {
+    return pick(RAW_MASTER[boothId], ["対応マシン名", "machine", "machine_name"]);
   }
-  const pct = rate * 100;
-  if (pct >= 32) return "background:#d93025; color:#fff; border-color:rgba(255,255,255,.18);";
-  if (pct <= 0) return "background:#1a73e8; color:#fff; border-color:rgba(255,255,255,.18);";
-  if (pct >= 25 && pct <= 31) return "background:rgba(255,255,255,.75); color:#111; border-color:rgba(0,0,0,.08);";
-  if (pct < 25) return "background:rgba(26,115,232,.20); color:#e8eef6;";
-  return "background:rgba(217,48,37,.18); color:#e8eef6;";
+
+  // 3) array
+  if (Array.isArray(RAW_MASTER)) {
+    const hit = RAW_MASTER.find(r => String(pick(r, ["ブースID", "booth_id", "boothId"])) === boothId);
+    if (hit) return pick(hit, ["対応マシン名", "machine", "machine_name"]);
+  }
+
+  return null;
 }
 
-/** フィルタ：投入法 */
-function filterByClawMode(rows) {
-  if (clawMode === "all") return rows;
-  return rows.filter((r) => {
-    const pm = normalizeStr(pick(r, ["投入法", "claw_mode", "mode_claw"]));
-    return pm === clawMode;
+function getMachineName(row) {
+  // master H (対応マシン名) 優先
+  const boothId = getBoothId(row);
+  const fromMaster = getMasterMachineNameByBoothId(boothId);
+  if (fromMaster) return String(fromMaster);
+
+  // rows側に入っている場合
+  const v = pick(row, ["対応マシン名", "machine", "machine_name"]);
+  if (v) return String(v);
+
+  // fallback: マシン名/ブースID
+  const fallback = pick(row, ["マシン名", "machine_ref", "ブースID", "booth_id"]);
+  return String(fallback || "");
+}
+
+function calcCostRate(row) {
+  const sales = getSales(row);
+  const consume = getConsume(row);
+  if (!sales) return 0;
+  return consume / sales; // 0-1
+}
+
+// --------------------------
+// UI Init
+// --------------------------
+function initUI() {
+  // Drawer open/close
+  const drawer = document.getElementById("drawer");
+  const overlay = document.getElementById("drawerOverlay");
+  const openBtn = document.getElementById("openDrawerBtn");
+  const closeBtn = document.getElementById("closeDrawerBtn");
+  const applyBtn = document.getElementById("applyFiltersBtn");
+
+  function openDrawer() {
+    drawer.classList.add("isOpen");
+    overlay.classList.add("isOpen");
+  }
+  function closeDrawer() {
+    drawer.classList.remove("isOpen");
+    overlay.classList.remove("isOpen");
+  }
+  openBtn.addEventListener("click", openDrawer);
+  closeBtn.addEventListener("click", closeDrawer);
+  overlay.addEventListener("click", closeDrawer);
+  applyBtn.addEventListener("click", () => {
+    closeDrawer();
+    syncNumericInputsToState();
+    renderAll();
+  });
+
+  // Axis select
+  const axisSelect = document.getElementById("axisSelect");
+  axisSelect.innerHTML = "";
+  const availableAxis = getAvailableAxisKeys();
+  for (const k of availableAxis) {
+    const opt = document.createElement("option");
+    opt.value = k;
+    opt.textContent = k;
+    axisSelect.appendChild(opt);
+  }
+  state.axisKey = availableAxis.includes(state.axisKey) ? state.axisKey : availableAxis[0] || "景品ジャンル";
+  axisSelect.value = state.axisKey;
+  axisSelect.addEventListener("change", () => {
+    state.axisKey = axisSelect.value;
+    renderAll();
+  });
+
+  // axis sort
+  const axisSortKey = document.getElementById("axisSortKey");
+  const axisSortDirBtn = document.getElementById("axisSortDirBtn");
+  axisSortKey.value = state.axisSortKey;
+  axisSortKey.addEventListener("change", () => { state.axisSortKey = axisSortKey.value; renderAll(); });
+  axisSortDirBtn.addEventListener("click", () => {
+    state.axisSortDir = state.axisSortDir === "desc" ? "asc" : "desc";
+    axisSortDirBtn.textContent = state.axisSortDir === "desc" ? "降順" : "昇順";
+    renderAll();
+  });
+
+  // table sort
+  const tableSortKey = document.getElementById("tableSortKey");
+  const tableSortDirBtn = document.getElementById("tableSortDirBtn");
+  tableSortKey.value = state.tableSortKey;
+  tableSortKey.addEventListener("change", () => { state.tableSortKey = tableSortKey.value; renderAll(); });
+  tableSortDirBtn.addEventListener("click", () => {
+    state.tableSortDir = state.tableSortDir === "desc" ? "asc" : "desc";
+    tableSortDirBtn.textContent = state.tableSortDir === "desc" ? "降順" : "昇順";
+    renderAll();
+  });
+
+  // clickable headers (optional convenience)
+  document.querySelectorAll(".table thead th[data-sort]").forEach(th => {
+    th.style.cursor = "pointer";
+    th.addEventListener("click", () => {
+      const k = th.getAttribute("data-sort");
+      if (!k) return;
+      if (state.tableSortKey === k) {
+        state.tableSortDir = state.tableSortDir === "desc" ? "asc" : "desc";
+      } else {
+        state.tableSortKey = k;
+        state.tableSortDir = "desc";
+      }
+      tableSortKey.value = state.tableSortKey;
+      tableSortDirBtn.textContent = state.tableSortDir === "desc" ? "降順" : "昇順";
+      renderAll();
+    });
+  });
+
+  // machine chips
+  buildMachineChips();
+
+  // claw seg
+  buildClawSeg();
+
+  // selects (genre/chara/gender/age)
+  buildSelect("genreSelect", uniqueValues(RAW_ROWS.map(getGenre)), (v) => { state.genre = v; });
+  buildSelect("charaSelect", uniqueValues(RAW_ROWS.map(getChara)), (v) => { state.chara = v; });
+  buildSelect("genderSelect", uniqueValues(RAW_ROWS.map(getGender)), (v) => { state.gender = v; });
+  buildSelect("ageSelect", uniqueValues(RAW_ROWS.map(getAge)), (v) => { state.age = v; });
+
+  // numeric inputs
+  hookNumericInputs();
+
+  // presets
+  document.getElementById("presetHighSalesLowCost").addEventListener("click", () => {
+    document.getElementById("minSales").value = "10000";
+    document.getElementById("maxSales").value = "";
+    document.getElementById("minCostPct").value = "";
+    document.getElementById("maxCostPct").value = "5";
+  });
+  document.getElementById("presetResetNumeric").addEventListener("click", () => {
+    document.getElementById("minSales").value = "";
+    document.getElementById("maxSales").value = "";
+    document.getElementById("minCostPct").value = "";
+    document.getElementById("maxCostPct").value = "";
+  });
+
+  // clear machines
+  document.getElementById("clearMachinesBtn").addEventListener("click", () => {
+    state.machines.clear();
+    buildMachineChips(true);
+    renderAll();
+  });
+
+  // search in drawer
+  document.getElementById("machineSearch").addEventListener("input", () => {
+    buildMachineChips(true);
   });
 }
 
-/** フィルタ：検索（景品名/マシン名） */
-function filterByQuery(rows) {
-  const q = normalizeStr(document.querySelector("#q")?.value).toLowerCase();
-  if (!q) return rows;
+function getAvailableAxisKeys() {
+  const keys = new Set();
+  for (const k of AXIS_CANDIDATES) {
+    // 1) known computed fields
+    if (k === "投入法") { keys.add(k); continue; }
+    if (k === "景品ジャンル") { keys.add(k); continue; }
+    if (k === "キャラ") { keys.add(k); continue; }
+    if (k === "性別") { keys.add(k); continue; }
+    if (k === "年代") { keys.add(k); continue; }
+    if (k === "更新日") { keys.add(k); continue; }
+  }
+  return Array.from(keys);
+}
 
-  return rows.filter((r) => {
-    const machine = normalizeStr(
-      pick(r, ["machine_name", "マシン名（ブースID）", "マシン名", "ブースID", "booth_id", "machine"])
-    ).toLowerCase();
+function uniqueValues(arr) {
+  const s = new Set();
+  for (const v of arr) {
+    const x = (v == null || v === "") ? "未分類" : String(v);
+    s.add(x);
+  }
+  return Array.from(s).sort((a,b)=>a.localeCompare(b,"ja"));
+}
 
-    const item = normalizeStr(
-      pick(r, ["景品名", "最終景品", "最終景品名", "item_name", "prize_name"])
-    ).toLowerCase();
-
-    return machine.includes(q) || item.includes(q);
+function buildSelect(id, values, onChange) {
+  const el = document.getElementById(id);
+  const all = ["全て", ...values];
+  el.innerHTML = "";
+  for (const v of all) {
+    const opt = document.createElement("option");
+    opt.value = v;
+    opt.textContent = v;
+    el.appendChild(opt);
+  }
+  // initial state
+  const map = {
+    genreSelect: "genre",
+    charaSelect: "chara",
+    genderSelect: "gender",
+    ageSelect: "age",
+  };
+  const key = map[id];
+  el.value = state[key] || "全て";
+  el.addEventListener("change", () => {
+    onChange(el.value);
   });
 }
 
-/** フィルタ：マシン（machine_key複数選択 OR） */
-function filterByMachine(rows) {
-  if (!machineSelected || machineSelected.size === 0) return rows;
-  return rows.filter((r) => {
-    const mk = normalizeStr(pick(r, ["machine_key", "対応マシン名", "対応マシン", "machine_ref"]));
-    return machineSelected.has(mk);
-  });
+function buildClawSeg() {
+  const seg = document.getElementById("clawSeg");
+  seg.innerHTML = "";
+  for (const v of CLAW_OPTIONS) {
+    const b = document.createElement("button");
+    b.className = "segBtn" + (state.claw === v ? " isOn" : "");
+    b.textContent = v;
+    b.addEventListener("click", () => {
+      state.claw = v;
+      buildClawSeg();
+    });
+    seg.appendChild(b);
+  }
 }
 
-/** フィルタ：ジャンル2段 */
-function filterByGenre(rows) {
-  let out = rows;
-  if (prizeGenre) {
-    out = out.filter((r) => normalizeStr(pick(r, ["景品ジャンル"])) === prizeGenre);
+function buildMachineChips(rebuildOnly = false) {
+  const wrap = document.getElementById("machineChipGrid");
+  const q = (document.getElementById("machineSearch").value || "").trim().toLowerCase();
+
+  // master H (対応マシン名) を基準に、候補を作る
+  const allMachines = uniqueValues(RAW_ROWS.map(getMachineName)).filter(x => x && x !== "未分類");
+
+  const filtered = q ? allMachines.filter(m => m.toLowerCase().includes(q)) : allMachines;
+
+  wrap.innerHTML = "";
+  for (const name of filtered) {
+    const btn = document.createElement("button");
+    btn.className = "chipBtn" + (state.machines.has(name) ? " isOn" : "");
+    btn.textContent = name;
+    btn.addEventListener("click", () => {
+      if (state.machines.has(name)) state.machines.delete(name);
+      else state.machines.add(name);
+      btn.classList.toggle("isOn");
+    });
+    wrap.appendChild(btn);
+  }
+}
+
+function hookNumericInputs() {
+  const ids = ["minSales", "maxSales", "minCostPct", "maxCostPct"];
+  for (const id of ids) {
+    document.getElementById(id).addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        syncNumericInputsToState();
+        renderAll();
+      }
+    });
+  }
+}
+
+function syncNumericInputsToState() {
+  const minSales = parseFloat(document.getElementById("minSales").value);
+  const maxSales = parseFloat(document.getElementById("maxSales").value);
+  const minCostPct = parseFloat(document.getElementById("minCostPct").value);
+  const maxCostPct = parseFloat(document.getElementById("maxCostPct").value);
+
+  state.minSales = isFinite(minSales) ? minSales : null;
+  state.maxSales = isFinite(maxSales) ? maxSales : null;
+
+  state.minCostRate = isFinite(minCostPct) ? (minCostPct / 100) : null;
+  state.maxCostRate = isFinite(maxCostPct) ? (maxCostPct / 100) : null;
+}
+
+// --------------------------
+// Filtering + Aggregation
+// --------------------------
+function passesFilters(row) {
+  // machines (対応マシン名) - state.machines が空なら全て
+  const machineName = getMachineName(row);
+  if (state.machines.size > 0 && !state.machines.has(machineName)) return false;
+
+  // claw
+  if (state.claw !== "全体") {
+    const claw = getClaw(row);
+    if (claw !== state.claw) return false;
   }
 
-  if (prizeGenre && subGenreSelected.size > 0) {
-    const subKey =
-      prizeGenre === "食品" ? "食品ジャンル"
-      : prizeGenre === "ぬいぐるみ" ? "ぬいぐるみジャンル"
-      : prizeGenre === "雑貨" ? "雑貨ジャンル"
-      : "";
+  // category selects
+  if (state.genre !== "全て" && getGenre(row) !== state.genre) return false;
+  if (state.chara !== "全て" && getChara(row) !== state.chara) return false;
+  if (state.gender !== "全て" && getGender(row) !== state.gender) return false;
+  if (state.age !== "全て" && getAge(row) !== state.age) return false;
 
-    if (subKey) {
-      out = out.filter((r) => {
-        const v = normalizeStr(pick(r, [subKey]));
-        return subGenreSelected.has(v);
-      });
-    }
+  // numeric rule filter (row-level)
+  const sales = getSales(row);
+  const cr = calcCostRate(row);
+
+  if (state.minSales != null && sales < state.minSales) return false;
+  if (state.maxSales != null && sales > state.maxSales) return false;
+
+  if (state.minCostRate != null && cr < state.minCostRate) return false;
+  if (state.maxCostRate != null && cr > state.maxCostRate) return false;
+
+  return true;
+}
+
+function getAxisValue(row, axisKey) {
+  switch (axisKey) {
+    case "景品ジャンル": return getGenre(row);
+    case "投入法": return getClaw(row);
+    case "キャラ": return getChara(row);
+    case "性別": return getGender(row);
+    case "年代": return getAge(row);
+    case "更新日": return getUpdatedAt(row) || "-";
+    default:
+      return String(row[axisKey] ?? "未分類");
+  }
+}
+
+function uniqueMachineCountFromMasterH(rows) {
+  const set = new Set();
+  for (const r of rows) {
+    const m = getMachineName(r);
+    if (!m) continue;
+    if (m === "未分類") continue;
+    set.add(m);
+  }
+  return set.size;
+}
+
+function totals(rows) {
+  let sales = 0;
+  let consume = 0;
+  for (const r of rows) {
+    sales += getSales(r);
+    consume += getConsume(r);
+  }
+  const cr = sales ? (consume / sales) : 0;
+  return { sales, consume, costRate: cr };
+}
+
+function groupByAxis(rows, axisKey) {
+  const map = new Map();
+  for (const r of rows) {
+    const key = getAxisValue(r, axisKey) || "未分類";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(r);
   }
 
+  const out = [];
+  for (const [key, list] of map.entries()) {
+    const t = totals(list);
+    out.push({
+      key,
+      sales: t.sales,
+      consume: t.consume,
+      costRate: t.costRate,
+      machines: uniqueMachineCountFromMasterH(list),
+      rows: list,
+    });
+  }
   return out;
 }
 
-/** フィルタ：ターゲット（性別） */
-function filterByTarget(rows) {
-  if (!targetSelected || targetSelected.size === 0) return rows;
-  return rows.filter((r) => targetSelected.has(normalizeStr(pick(r, ["ターゲット"]))));
-}
+function sortAxisGroups(groups) {
+  const dir = state.axisSortDir === "desc" ? -1 : 1;
+  const key = state.axisSortKey;
 
-/** フィルタ：年代 */
-function filterByAge(rows) {
-  if (!ageSelected || ageSelected.size === 0) return rows;
-  return rows.filter((r) => ageSelected.has(normalizeStr(pick(r, ["年代"]))));
-}
-
-/** 正規化（表示・集計に必要な形） */
-function normalizeRow(r) {
-  const machine = pick(r, ["machine_name", "マシン名（ブースID）", "マシン名", "ブースID", "booth_id", "machine"]);
-  const machineKey = pick(r, ["machine_key", "対応マシン名", "対応マシン", "machine_ref"]);
-
-  const item = pick(r, ["景品名", "最終景品", "最終景品名", "item_name", "prize_name"]);
-  const sales = pick(r, ["総売り上げ", "総売上", "総売上げ", "売上", "sales"]);
-  const cnt = pick(r, ["consume_count", "消化数", "消化回数", "count", "plays"]);
-  const claw = pick(r, ["消化額", "claw"]);
-  const rateRaw = pick(r, ["原価率", "cost_rate"]);
-
-  const updatedDate = pick(r, ["updated_date", "更新日", "updatedDate"]);
-  const updatedAt = pick(r, ["updated_at", "更新日時", "updated"]);
-
-  const salesN = num(sales);
-  const clawN = num(claw);
-
-  const rateN =
-    rateRaw != null && rateRaw !== "" ? Number(rateRaw) : salesN ? (clawN * 1.1) / salesN : null;
-
-  return {
-    machine: normalizeStr(machine) || "-",
-    machine_key: normalizeStr(machineKey) || "",
-    item: normalizeStr(item) || "-",
-    sales: salesN,
-    count: num(cnt),
-    claw: clawN,
-    cost_rate: Number.isFinite(rateN) ? rateN : null,
-    updated_date: updatedDate ?? updatedAt ?? "",
-
-    prize_genre: normalizeStr(pick(r, ["景品ジャンル"])) || "",
-    food_genre: normalizeStr(pick(r, ["食品ジャンル"])) || "",
-    nui_genre: normalizeStr(pick(r, ["ぬいぐるみジャンル"])) || "",
-    goods_genre: normalizeStr(pick(r, ["雑貨ジャンル"])) || "",
-    target: normalizeStr(pick(r, ["ターゲット"])) || "",
-    age: normalizeStr(pick(r, ["年代"])) || "",
-  };
-}
-
-/** 共通：候補値作成 */
-function uniqueSorted(values) {
-  const s = new Set(values.map((x) => normalizeStr(x)).filter((x) => x));
-  return Array.from(s).sort((a, b) => a.localeCompare(b, "ja"));
-}
-
-/** チップ描画（単一選択） */
-function renderChipsSingle(rootId, values, selectedValue, onClick) {
-  const root = document.querySelector(rootId);
-  if (!root) return;
-  root.innerHTML = "";
-
-  for (const v of values) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "chip" + (selectedValue === v ? " on" : "");
-    btn.textContent = v;
-    btn.addEventListener("click", () => onClick(v));
-    root.appendChild(btn);
-  }
-}
-
-/** チップ描画（複数選択） */
-function renderChipsMulti(rootId, values, selectedSet, onToggle) {
-  const root = document.querySelector(rootId);
-  if (!root) return;
-  root.innerHTML = "";
-
-  for (const v of values) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "chip" + (selectedSet.has(v) ? " on" : "");
-    btn.textContent = v;
-    btn.addEventListener("click", () => onToggle(v));
-    root.appendChild(btn);
-  }
-}
-
-/** ジャンル別サマリ */
-function renderGenreSummary(normRows) {
-  const root = document.querySelector("#genre_summary");
-  if (!root) return;
-
-  const map = new Map(); // genre -> {sales, claw, machines(Set)}
-  for (const r of normRows) {
-    const g = (r.prize_genre || "未分類").trim();
-    if (!map.has(g)) map.set(g, { sales: 0, claw: 0, machines: new Set() });
-    const obj = map.get(g);
-    obj.sales += num(r.sales);
-    obj.claw += num(r.claw);
-    if (r.machine_key) obj.machines.add(r.machine_key);
-  }
-
-  const list = Array.from(map.entries()).sort((a, b) => b[1].sales - a[1].sales);
-
-  root.innerHTML = "";
-  for (const [g, v] of list) {
-    const rate = v.sales ? (v.claw * 1.1) / v.sales : null;
-    const el = document.createElement("div");
-    el.className = "genreCard";
-    el.innerHTML = `
-      <div class="ttl">${escapeHtml(g)}</div>
-      <div class="row"><span>売上</span><span>${fmtYen(v.sales)}</span></div>
-      <div class="row"><span>消化額</span><span>${fmtYen(v.claw)}</span></div>
-      <div class="row"><span>原価率</span><span>${fmtPct(rate)}</span></div>
-      <div class="row"><span>台数</span><span>${fmtNum(v.machines.size)}台</span></div>
-    `;
-    root.appendChild(el);
-  }
-}
-
-function render() {
-  // 更新表示（summary優先、日付のみ）
-  const updatedEl = document.querySelector("#updated");
-  if (updatedEl) {
-    const su = RAW_SUMMARY?.updated_at ?? RAW_SUMMARY?.updated ?? RAW_SUMMARY?.updatedAt;
-    updatedEl.textContent = "更新: " + (su ? fmtDateOnly(su) : "-");
-  }
-
-  // ===== フィルタ（RAW段階）=====
-  let rows = RAW_ROWS.slice();
-  rows = filterByClawMode(rows);
-  rows = filterByQuery(rows);
-  rows = filterByMachine(rows);
-  rows = filterByGenre(rows);
-  rows = filterByTarget(rows);
-  rows = filterByAge(rows);
-
-  // 正規化（表示/集計用）
-  const norm = rows.map(normalizeRow);
-  norm.sort((a, b) => b.sales - a.sales);
-
-  // ===== 候補チップ生成（全RAWから作ると「絞り込みで候補が消える」ので、投入法+検索まで適用した状態から作る）=====
-  // ここでは「投入法+検索」のみ反映した pool を作り、候補を安定させる
-  let pool = RAW_ROWS.slice();
-  pool = filterByClawMode(pool);
-  pool = filterByQuery(pool);
-  const poolNorm = pool.map(normalizeRow);
-
-  // マシン候補（machine_key）※入力でフィルタ
-  let machineValues = uniqueSorted(poolNorm.map((r) => r.machine_key).filter(Boolean));
-  const mq = normalizeStr(machineQuery).toLowerCase();
-  if (mq) machineValues = machineValues.filter((x) => x.toLowerCase().includes(mq));
-
-  renderChipsMulti("#chips_machine", machineValues, machineSelected, (v) => {
-    if (machineSelected.has(v)) machineSelected.delete(v);
-    else machineSelected.add(v);
-    render();
+  return groups.sort((a,b) => {
+    const av = a[key] ?? 0;
+    const bv = b[key] ?? 0;
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return String(a.key).localeCompare(String(b.key), "ja") * dir;
   });
+}
 
-  // 景品ジャンル候補
-  const prizeGenreValues = uniqueSorted(poolNorm.map((r) => r.prize_genre));
-  renderChipsSingle("#chips_genre", prizeGenreValues, prizeGenre, (v) => {
-    if (prizeGenre === v) {
-      prizeGenre = "";
-      subGenreSelected = new Set();
-    } else {
-      prizeGenre = v;
-      subGenreSelected = new Set();
+function sortRows(rows) {
+  const dir = state.tableSortDir === "desc" ? -1 : 1;
+  const key = state.tableSortKey;
+
+  function val(r) {
+    switch (key) {
+      case "sales": return getSales(r);
+      case "consume": return getConsume(r);
+      case "consumeCount": return getConsumeCount(r);
+      case "costRate": return calcCostRate(r);
+      case "updatedAt": {
+        // 日付文字列をざっくり比較
+        const s = getUpdatedAt(r);
+        return s ? s : "";
+      }
+      case "machine": return getMachineName(r);
+      default: return getSales(r);
     }
-    render();
-  });
-
-  // 子ジャンル候補（景品ジャンルに応じて）
-  let subValues = [];
-  if (prizeGenre === "食品") subValues = uniqueSorted(poolNorm.filter(r => r.prize_genre==="食品").map((r) => r.food_genre));
-  else if (prizeGenre === "ぬいぐるみ") subValues = uniqueSorted(poolNorm.filter(r => r.prize_genre==="ぬいぐるみ").map((r) => r.nui_genre));
-  else if (prizeGenre === "雑貨") subValues = uniqueSorted(poolNorm.filter(r => r.prize_genre==="雑貨").map((r) => r.goods_genre));
-  else subValues = [];
-
-  renderChipsMulti("#chips_subgenre", subValues, subGenreSelected, (v) => {
-    if (subGenreSelected.has(v)) subGenreSelected.delete(v);
-    else subGenreSelected.add(v);
-    render();
-  });
-
-  // ターゲット（性別）候補
-  const targetValues = uniqueSorted(poolNorm.map((r) => r.target));
-  renderChipsMulti("#chips_target", targetValues, targetSelected, (v) => {
-    if (targetSelected.has(v)) targetSelected.delete(v);
-    else targetSelected.add(v);
-    render();
-  });
-
-  // 年代候補
-  const ageValues = uniqueSorted(poolNorm.map((r) => r.age));
-  renderChipsMulti("#chips_age", ageValues, ageSelected, (v) => {
-    if (ageSelected.has(v)) ageSelected.delete(v);
-    else ageSelected.add(v);
-    render();
-  });
-
-  // ===== KPI（machine_keyユニーク）=====
-  const uniqueMachineKeys = new Set(
-    norm
-      .map((r) => normalizeStr(r.machine_key))
-      .filter((v) => v !== "" && v !== "-" && v !== "#N/A" && v !== "N/A")
-  );
-  const machines = uniqueMachineKeys.size;
-
-  const totalSales = norm.reduce((a, r) => a + num(r.sales), 0);
-  const totalClaw = norm.reduce((a, r) => a + num(r.claw), 0);
-  const costRate = totalSales ? (totalClaw * 1.1) / totalSales : null;
-  const avgSales = machines ? totalSales / machines : null;
-
-  const kSales = document.querySelector("#k_sales");
-  const kClaw = document.querySelector("#k_claw");
-  const kRate = document.querySelector("#k_rate");
-  const kAvg = document.querySelector("#k_avg");
-  const kMac = document.querySelector("#k_machines");
-  const kFilt = document.querySelector("#k_filtered");
-
-  if (kSales) kSales.textContent = fmtYen(totalSales);
-  if (kClaw) kClaw.textContent = fmtYen(totalClaw);
-  if (kRate) kRate.textContent = fmtPct(costRate);
-  if (kAvg) kAvg.textContent = avgSales == null ? "-" : fmtYen(avgSales);
-  if (kMac) kMac.textContent = `台数: ${fmtNum(machines)}`;
-
-  if (kFilt) {
-    const modeLabel = clawMode === "all" ? "全体" : clawMode;
-    const q = normalizeStr(document.querySelector("#q")?.value);
-    const mac = machineSelected.size ? ` / マシン:${machineSelected.size}件` : "";
-    const g = prizeGenre ? ` / 景品:${prizeGenre}` : "";
-    const sg = subGenreSelected.size ? ` / 子:${Array.from(subGenreSelected).join(",")}` : "";
-    const tg = targetSelected.size ? ` / 性別:${Array.from(targetSelected).join(",")}` : "";
-    const ag = ageSelected.size ? ` / 年代:${Array.from(ageSelected).join(",")}` : "";
-    kFilt.textContent = `対象: ${fmtNum(machines)}台 / 投入法: ${modeLabel}${q ? ` / 検索:"${q}"` : ""}${mac}${g}${sg}${tg}${ag}`;
   }
 
-  // ★ジャンル別サマリ（フィルタ後のnormで出す）
-  renderGenreSummary(norm);
+  return rows.sort((a,b) => {
+    const av = val(a);
+    const bv = val(b);
+    if (typeof av === "string" || typeof bv === "string") {
+      return String(av).localeCompare(String(bv), "ja") * dir;
+    }
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+}
 
-  // ===== テーブル =====
-  const tb = document.querySelector("#tbl tbody");
-  if (!tb) return;
-  tb.innerHTML = "";
+// --------------------------
+// Render
+// --------------------------
+function renderAll() {
+  const filtered = RAW_ROWS.filter(passesFilters);
 
-  for (const r of norm) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${escapeHtml(r.machine)}</td>
-      <td>${escapeHtml(r.item)}</td>
-      <td class="num">${fmtYen(r.sales)}</td>
-      <td class="num">${fmtNum(r.count)}</td>
-      <td class="num">${fmtYen(r.claw)}</td>
-      <td class="num">
-        <span class="badgeRate" style="${rateBadgeStyle(r.cost_rate)}">${fmtPct(r.cost_rate)}</span>
-      </td>
-      <td>${escapeHtml(fmtDateOnly(r.updated_date))}</td>
+  renderActiveFilterChips(filtered);
+  renderKPI(filtered);
+  renderAxis(filtered);
+  renderTable(filtered);
+}
+
+function renderActiveFilterChips(filteredRows) {
+  const wrap = document.getElementById("activeFilterChips");
+  wrap.innerHTML = "";
+
+  const chips = [];
+
+  // machines summary
+  if (state.machines.size > 0) {
+    const list = Array.from(state.machines);
+    const label = list.length <= 3 ? list.join(" / ") : `${list[0]} ほか${list.length-1}`;
+    chips.push({ k: "マシン", v: label });
+  } else {
+    chips.push({ k: "マシン", v: "全体" });
+  }
+
+  chips.push({ k: "投入法", v: state.claw });
+
+  if (state.genre !== "全て") chips.push({ k: "ジャンル", v: state.genre });
+  if (state.chara !== "全て") chips.push({ k: "キャラ", v: state.chara });
+  if (state.gender !== "全て") chips.push({ k: "性別", v: state.gender });
+  if (state.age !== "全て") chips.push({ k: "年代", v: state.age });
+
+  // numeric
+  if (state.minSales != null) chips.push({ k: "売上≥", v: fmtNum(state.minSales) });
+  if (state.maxSales != null) chips.push({ k: "売上≤", v: fmtNum(state.maxSales) });
+  if (state.minCostRate != null) chips.push({ k: "原価率≥", v: (state.minCostRate*100).toFixed(0) + "%" });
+  if (state.maxCostRate != null) chips.push({ k: "原価率≤", v: (state.maxCostRate*100).toFixed(0) + "%" });
+
+  // right side meta chip (target count)
+  chips.push({ k: "対象", v: `${filteredRows.length}行` });
+
+  for (const c of chips) {
+    const el = document.createElement("div");
+    el.className = "chip";
+    el.innerHTML = `<b>${escapeHtml(c.k)}</b> ${escapeHtml(c.v)}`;
+    wrap.appendChild(el);
+  }
+}
+
+function renderKPI(rows) {
+  const t = totals(rows);
+  const machines = uniqueMachineCountFromMasterH(rows);
+  const avg = machines ? (t.sales / machines) : 0;
+
+  document.getElementById("kpiSales").textContent = fmtYen(t.sales);
+  document.getElementById("kpiConsume").textContent = fmtYen(t.consume);
+  document.getElementById("kpiCostRate").textContent = fmtPct(t.costRate);
+  document.getElementById("kpiAvg").textContent = fmtYen(avg);
+  document.getElementById("kpiMachineCount").textContent = `台数: ${machines}`;
+
+  // table meta
+  document.getElementById("tableMeta").textContent = `対象: ${machines}台 / 投入法: ${state.claw}`;
+}
+
+function renderAxis(rows) {
+  const wrap = document.getElementById("axisCards");
+  wrap.innerHTML = "";
+
+  const groups = sortAxisGroups(groupByAxis(rows, state.axisKey));
+  for (const g of groups) {
+    const card = document.createElement("div");
+    card.className = "axisCard";
+    card.innerHTML = `
+      <div class="axisCard__title">
+        <div>${escapeHtml(g.key)}</div>
+        <div class="badge">${g.machines}台</div>
+      </div>
+      <div class="axisCard__grid">
+        <div class="row"><span>売上</span><b>${fmtYen(g.sales)}</b></div>
+        <div class="row"><span>消化額</span><b>${fmtYen(g.consume)}</b></div>
+        <div class="row"><span>原価率</span><b>${fmtPct(g.costRate)}</b></div>
+      </div>
     `;
-    tb.appendChild(tr);
+    wrap.appendChild(card);
   }
 }
 
-async function fetchJson(url) {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(url + " " + res.status);
-  return res.json();
+function renderTable(rows) {
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
+
+  const list = sortRows([...rows]);
+
+  for (const r of list) {
+    const tr = document.createElement("tr");
+
+    const machineName = getMachineName(r);
+    const prize = getPrizeName(r);
+    const sales = getSales(r);
+    const ccount = getConsumeCount(r);
+    const consume = getConsume(r);
+    const cr = calcCostRate(r);
+    const upd = getUpdatedAt(r) || "-";
+
+    tr.innerHTML = `
+      <td>${escapeHtml(machineName)}</td>
+      <td>${escapeHtml(prize)}</td>
+      <td class="num">${fmtYen(sales)}</td>
+      <td class="num">${fmtNum(ccount)}</td>
+      <td class="num">${fmtYen(consume)}</td>
+      <td class="num"><span class="badge">${fmtPct(cr)}</span></td>
+      <td class="num">${escapeHtml(upd)}</td>
+    `;
+    body.appendChild(tr);
+  }
 }
 
+// --------------------------
+// util
+// --------------------------
 function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[c]));
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-main().catch((e) => {
-  console.error(e);
-  alert("読み込み失敗: " + e.message);
+// boot
+loadAll().catch(err => {
+  console.error(err);
+  alert("データの読み込みに失敗しました: " + err.message);
 });
-
