@@ -76,7 +76,7 @@ function parseCSV(csvText) {
 }
 
 function toObjects(rows) {
-  const header = rows[0].map(h => (h ?? "").trim());
+  const header = rows[0].map((h) => (h ?? "").trim());
   const objs = [];
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
@@ -88,7 +88,7 @@ function toObjects(rows) {
       o[k] = (r[j] ?? "").trim();
     }
     // 空行っぽいのは捨てる
-    const any = Object.values(o).some(v => v !== "");
+    const any = Object.values(o).some((v) => v !== "");
     if (any) objs.push(o);
   }
   return { header, objs };
@@ -98,6 +98,17 @@ function num(x) {
   if (x == null) return 0;
   const n = Number(String(x).replace(/,/g, ""));
   return Number.isFinite(n) ? n : 0;
+}
+
+// 列名ゆらぎ吸収：最初にヒットした列の値を返す
+function pick(row, keys, fallback = "") {
+  for (const k of keys) {
+    if (row && Object.prototype.hasOwnProperty.call(row, k)) {
+      const v = row[k];
+      if (v != null && String(v).trim() !== "") return v;
+    }
+  }
+  return fallback;
 }
 
 /**
@@ -168,7 +179,7 @@ function parseSymbol(symbolStr, symbolMaster) {
   if (tokens.length >= 2) {
     for (const spec of SYMBOL_SPEC) {
       const dict = symbolMaster.dict[spec.key] || {};
-      const hit = tokens.find(t => dict[t]);
+      const hit = tokens.find((t) => dict[t]);
       if (hit) {
         out[spec.key] = dict[hit];
         out[spec.key + "_code"] = hit;
@@ -205,37 +216,53 @@ function parseSymbol(symbolStr, symbolMaster) {
 
 function buildRows(dbObjs, symbolMaster) {
   // DB側の列（あなたの提示）
-  // ブースID 景品名 総売上 消化数 消化額 原価率 ラベルID 対応マシン名 幅 奥行き 記号
-  const rows = dbObjs.map(r => {
-    const symbol = (r["記号"] ?? "").trim();
-
+  // ブースID 景品名 総売上 消化数 消化額 原価率 ラベルID 対応マシン名 幅 奥行き 記号 更新日時
+  // ※列名ゆらぎがあるので pick() で吸収
+  const rows = dbObjs.map((r) => {
+    const symbol = String(pick(r, ["記号", "symbol", "記号_raw", "記号ID"], "")).trim();
     const parsed = parseSymbol(symbol, symbolMaster);
 
-    const sales = num(r["総売上"]);
-    const claw = num(r["消化額"]);
+    const sales = num(pick(r, ["総売上", "総売り上げ", "売上", "売上合計", "sales"], 0));
+    const claw = num(pick(r, ["消化額", "消化金額", "原価", "claw"], 0));
     const costRate = sales ? (claw * 1.1) / sales : null; // ★あなた仕様
 
+    // ★消化数（列名ゆらぎを吸収）
+    const consumeCount =
+      num(pick(r, ["消化数", "消化回数", "消化", "回数", "プレイ回数", "plays", "count"], 0)) || 0;
+
+    // ★更新日時（列名ゆらぎを吸収）
+    const updatedAt = String(
+      pick(r, ["更新日時", "更新日", "updated_at", "updatedAt"], "")
+    ).trim();
+
+    // booth_id / machine / item_name も揺れ吸収（念のため）
+    const boothId = String(pick(r, ["ブースID", "マシン名（ブースID）", "booth_id"], "")).trim();
+    const itemName = String(pick(r, ["景品名", "item_name"], "")).trim();
+    const labelId = String(pick(r, ["ラベルID", "label_id"], "")).trim();
+    const machine = String(pick(r, ["対応マシン名", "マシン名", "machine"], "")).trim();
+
     return {
-  booth_id: r["ブースID"] ?? "",
-  item_name: r["景品名"] ?? "",
-  label_id: r["ラベルID"] ?? "",
-  machine: r["対応マシン名"] ?? "",
-  w: num(r["幅"]),
-  d: num(r["奥行き"]),
-  symbol_raw: symbol,
+      booth_id: boothId,
+      item_name: itemName,
+      label_id: labelId,
+      machine,
+      w: num(pick(r, ["幅", "w"], 0)),
+      d: num(pick(r, ["奥行き", "奥行", "d"], 0)),
+      symbol_raw: symbol,
 
-  // ★追加：消化数・更新日時（DB列）
-  consume_count: num(r["消化数"]),                 // ← 数値で出す
-  updated_at: (r["更新日時"] ?? "").trim(),        // ← 文字列でOK
+      // ★追加：消化数・更新日時
+      consume_count: consumeCount,
+      updated_at: updatedAt,
 
-  sales,
-  claw,
-  // 原価率（仕様で再計算を正とする）
-  cost_rate: costRate,
+      sales,
+      claw,
 
-  ...parsed,
-};
+      // 原価率（DB列があっても、ここでは仕様で再計算した値を正とする）
+      cost_rate: costRate,
 
+      // 解析結果（次元）
+      ...parsed,
+    };
   });
 
   return rows;
@@ -248,7 +275,7 @@ function summary(rows) {
 
   return {
     updated_at: new Date().toISOString(),
-    row_count: rows.length, // ← ここが279になるはず
+    row_count: rows.length,
     total_sales: totalSales,
     total_claw: totalClaw,
     cost_rate: costRate,
@@ -291,7 +318,7 @@ async function main() {
   console.log(`[OK] rows=${rows.length}`);
 }
 
-main().catch(e => {
+main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
