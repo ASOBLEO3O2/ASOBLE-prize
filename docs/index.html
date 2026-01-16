@@ -4,7 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>DB Dashboard</title>
-  <link rel="stylesheet" href="./style.css?v=20260116a">
+
+  <!-- cache buster -->
+  <link rel="stylesheet" href="./style.css?v=20260117a" />
 </head>
 <body>
   <header class="topbar">
@@ -21,6 +23,7 @@
 
     <div class="topbar__right">
       <button class="btn" id="openDrawerBtn">フィルタ</button>
+
       <div class="axisBox">
         <label class="axisBox__label">中段軸</label>
         <select id="axisSelect" class="select"></select>
@@ -92,7 +95,7 @@
       </div>
 
       <div class="presetRow">
-        <button class="btn btn--ghost" id="presetHighSalesLowCost">売上>1万 かつ 原価率<5%</button>
+        <button class="btn btn--ghost" id="presetHighSalesLowCost">売上&gt;1万 かつ 原価率&lt;5%</button>
         <button class="btn btn--ghost" id="presetResetNumeric">条件リセット</button>
       </div>
 
@@ -188,6 +191,7 @@
     </section>
   </main>
 
-  <script src="./app.js"></script>
+  <!-- cache buster -->
+  <script defer src="./app.js?v=20260117a"></script>
 </body>
 </html>
