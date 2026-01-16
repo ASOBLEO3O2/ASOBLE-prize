@@ -27,6 +27,7 @@
     </div>
   </section>
 
+  <!-- 既存パネル -->
   <section class="panel">
     <div class="panelHead">
       <h2>記号別 売上ランキング</h2>
@@ -57,12 +58,19 @@
     </table>
   </section>
 
-  <script src="./app.js"></script>
+  <!-- ★ ③ 構成KPI パネルの差し込み先（ここが必要） -->
+  <section class="panel" id="composition"></section>
+
+  <!-- これ、html外に出てたので body内へ移動 -->
+  <div class="panel" style="padding:10px;">
+    <label class="muted" for="mode_claw">爪モード</label>
+    <select id="mode_claw">
+      <option value="3本爪">3本爪</option>
+      <option value="2本爪">2本爪</option>
+    </select>
+  </div>
+
+  <!-- ★ module にする（import を使うため） -->
+  <script type="module" src="./js/main.js"></script>
 </body>
 </html>
-
-<select id="mode_claw">
-  <option value="3本爪">3本爪</option>
-  <option value="2本爪">2本爪</option>
-</select>
-
