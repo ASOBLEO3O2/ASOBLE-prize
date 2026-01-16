@@ -8,8 +8,19 @@
 </head>
 <body>
   <header class="top">
-    <h1>DB Dashboard</h1>
-    <div id="updated" class="updated">更新: -</div>
+    <div>
+      <h1>DB Dashboard</h1>
+      <div id="updated" class="updated">更新: -</div>
+    </div>
+
+    <!-- 投入法セレクト（※必ず body 内に置く） -->
+    <div class="topRight">
+      <label class="muted" for="mode_claw">投入法</label>
+      <select id="mode_claw">
+        <option value="3本爪">3本爪</option>
+        <option value="2本爪">2本爪</option>
+      </select>
+    </div>
   </header>
 
   <section class="kpi">
@@ -27,7 +38,7 @@
     </div>
   </section>
 
-  <!-- 既存パネル -->
+  <!-- 既存：記号別 売上ランキング -->
   <section class="panel">
     <div class="panelHead">
       <h2>記号別 売上ランキング</h2>
@@ -46,31 +57,24 @@
     <table id="tbl">
       <thead>
         <tr>
-          <th>記号</th>
+          <th data-sort="symbol">記号</th>
           <th>意味</th>
-          <th>売上</th>
-          <th>消化額</th>
-          <th>原価率</th>
-          <th>件数</th>
+          <th data-sort="sales">売上</th>
+          <th data-sort="claw">消化額</th>
+          <th data-sort="cost_rate">原価率</th>
+          <th data-sort="count">件数</th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
   </section>
 
-  <!-- ★ ③ 構成KPI パネルの差し込み先（ここが必要） -->
+  <!-- ★追加：③ 構成KPI（ここに描画される） -->
   <section class="panel" id="composition"></section>
 
-  <!-- これ、html外に出てたので body内へ移動 -->
-  <div class="panel" style="padding:10px;">
-    <label class="muted" for="mode_claw">爪モード</label>
-    <select id="mode_claw">
-      <option value="3本爪">3本爪</option>
-      <option value="2本爪">2本爪</option>
-    </select>
-  </div>
-
-  <!-- ★ module にする（import を使うため） -->
-  <script type="module" src="./js/main.js"></script>
+  <!-- 既存JS（非module） -->
+  <script src="./app.js"></script>
+  <!-- ★追加：③描画ロジック（非module） -->
+  <script src="./composition_kpi.js"></script>
 </body>
 </html>
