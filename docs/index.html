@@ -8,18 +8,25 @@
 </head>
 <body>
   <header class="top">
-    <div>
+    <div class="top-left">
       <h1>DB Dashboard</h1>
       <div id="updated" class="updated">更新: -</div>
     </div>
 
-    <!-- 投入法セレクト（※必ず body 内） -->
-    <div class="topRight">
-      <label class="muted" for="mode_claw">投入法</label>
-      <select id="mode_claw">
-        <option value="3本爪">3本爪</option>
-        <option value="2本爪">2本爪</option>
-      </select>
+    <div class="top-right">
+      <div class="ctlWrap">
+        <div class="ctlLabel">投入法フィルタ</div>
+        <select id="mode_claw" class="ctl">
+          <option value="all">全体</option>
+          <option value="3本爪">3本爪</option>
+          <option value="2本爪">2本爪</option>
+        </select>
+      </div>
+
+      <div class="ctlWrap">
+        <div class="ctlLabel">検索（景品名/マシン名）</div>
+        <input id="q" class="ctl" type="search" placeholder="例：ちいかわ / UFO9" />
+      </div>
     </div>
   </header>
 
@@ -27,6 +34,7 @@
     <div class="card">
       <div class="label">売上合計</div>
       <div id="k_sales" class="value">-</div>
+      <div id="k_machines" class="sub">台数: -</div>
     </div>
     <div class="card">
       <div class="label">消化額合計</div>
@@ -36,45 +44,34 @@
       <div class="label">原価率</div>
       <div id="k_rate" class="value">-</div>
     </div>
+    <div class="card">
+      <div class="label">平均（1台あたり売上）</div>
+      <div id="k_avg" class="value">-</div>
+    </div>
   </section>
 
   <section class="panel">
     <div class="panelHead">
-      <h2>記号別 売上ランキング</h2>
+      <h2>実データ（売上降順）</h2>
       <div id="k_filtered" class="muted"></div>
-    </div>
-
-    <div class="filters">
-      <div class="row">
-        <button id="btn_all">全選択</button>
-        <button id="btn_none">全解除</button>
-        <input id="q" type="search" placeholder="記号を検索（例: A）" />
-      </div>
-      <div id="symbol_box" class="chips"></div>
     </div>
 
     <table id="tbl">
       <thead>
         <tr>
-          <th data-sort="symbol">記号</th>
-          <th>意味</th>
-          <th data-sort="sales">売上</th>
-          <th data-sort="claw">消化額</th>
-          <th data-sort="cost_rate">原価率</th>
-          <th data-sort="count">件数</th>
+          <th>マシン名（ブースID）</th>
+          <th>景品名</th>
+          <th class="num">総売り上げ</th>
+          <th class="num">消化数</th>
+          <th class="num">消化額</th>
+          <th class="num">原価率</th>
+          <th>更新日時</th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
   </section>
 
-  <!-- ★追加：③ 構成KPI（ここに描画） -->
-  <section class="panel" id="composition"></section>
-
-  <!-- 既存：非module -->
   <script src="./app.js"></script>
-
-  <!-- ★追加：③は module 側で描画（既存app.jsを壊さずに追加） -->
-  <script type="module" src="./js/main.js"></script>
 </body>
 </html>
