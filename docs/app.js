@@ -70,6 +70,36 @@ async function loadAll() {
   renderAll();
 }
 
+// master lookup map (normalized boothId -> 対応マシン名)
+let MASTER_MACHINE_BY_BOOTH = new Map();
+
+function normalizeKey(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/\u3000/g, " ")        // 全角スペース→半角
+    .trim()
+    .replace(/[（]/g, "(")         // 全角カッコ→半角
+    .replace(/[）]/g, ")")
+    .replace(/\s+/g, "")           // すべての空白を除去
+    .toLowerCase();
+}
+
+function detectField(obj, candidates) {
+  if (!obj) return null;
+  const keys = Object.keys(obj);
+  // 完全一致優先
+  for (const c of candidates) {
+    if (keys.includes(c)) return c;
+  }
+  // 部分一致（例：対応マシン名(H) みたいな列名にも対応）
+  for (const k of keys) {
+    for (const c of candidates) {
+      if (k.includes(c)) return k;
+    }
+  }
+  return null;
+}
+
 function hydrateFromSummary() {
   const updated = RAW_SUMMARY?.updated_at || RAW_SUMMARY?.updatedAt || RAW_SUMMARY?.date || null;
   document.getElementById("lastUpdated").textContent = "更新: " + (updated ? String(updated) : "-");
